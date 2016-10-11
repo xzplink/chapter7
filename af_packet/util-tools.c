@@ -4,6 +4,13 @@
  * on 2016/10/10.
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sched.h>
+#include "ether-type.h"
+#include "util-tools.h"
 
 int daemon_init(void)
 {
@@ -27,7 +34,7 @@ int daemon_init(void)
 
     /* the child of the first child */
 
-    for (i=0; i<NOFILE;i++) // because a lot of codes still use stdout, stderr,  keep them open....
+    for (i=0; i < NOFILE; i++) // because a lot of codes still use stdout, stderr,  keep them open....
         close(i);
 
     int fd;
@@ -90,7 +97,7 @@ int thread_set_cpu(pthread_t pid, int cpu_index, int cpu_num)
  *
  * \retval csum Checksum for the TCP packet
  */
-static inline uint16_t TCPCalculateChecksum(uint16_t *shdr, uint16_t *pkt,
+inline uint16_t TCPCalculateChecksum(uint16_t *shdr, uint16_t *pkt,
                                             uint16_t tlen)
 {
     uint16_t pad = 0;
@@ -149,7 +156,7 @@ static inline uint16_t TCPCalculateChecksum(uint16_t *shdr, uint16_t *pkt,
  *
  * \retval csum Checksum for the IP packet
  */
-static inline uint16_t IPV4CalculateChecksum(uint16_t *pkt, uint16_t hlen)
+inline uint16_t IPV4CalculateChecksum(uint16_t *pkt, uint16_t hlen)
 {
     uint32_t csum = pkt[0];
 

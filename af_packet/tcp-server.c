@@ -14,20 +14,17 @@ int main(int argc, char* argv[])
     p.pkt   = calloc(20000,1);
     uint64_t   pkt_len;
 
-    if (argc!=2)
-    {
+    if (argc!=2) {
         printf("ethx num_per_printf !\n");
         exit(0);
     }
 
     //afpacket init
-    if (afpacket_init(argv[1], (void **)(&instance)) == AF_ERROR)
-    {
+    if (afpacket_init(argv[1], (void **)(&instance)) == AF_ERROR) {
         printf("afpacket_init fail , pkt_recv thread quit!\n");
         return ;
     }
-    if (afpacket_start((void *)instance, 1) == AF_ERROR)
-    {
+    if (afpacket_start((void *)instance) == AF_ERROR) {
         printf("afpacket_start fail , pkt_recv thread quit!\n");
         return ;
     }

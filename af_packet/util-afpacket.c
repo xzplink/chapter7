@@ -4,6 +4,9 @@
  * on 2016/10/10.
  */
 
+#include <sys/errno.h>
+#include <sys/ioctl.h>
+#include <string.h>
 #include "util-afpacket.h"
 #include "util-tools.h"
 
@@ -122,12 +125,12 @@ static int set_nic_promisc(AFPacketInstance *instance)
 uint8_t afpacket_init(const char *dev_name, void **ctxt_ptr)
 {
     AFPacketInstance    *instance;
-    int ret  = 1;
+    int ret  = 0;
 
     instance        = create_instance(dev_name);
     *ctxt_ptr       = instance;
     if(instance == NULL) {
-        ret = 0;
+        ret = -1;
     }
 
     return ret;
@@ -158,21 +161,19 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
     {
         //mac
         eh = (EtherHdr *) pkt;
-        if (ntohs(eh->ethertype) != IP_TYPE) {
+        if (ntohs(eh->ether_type) != IP_TYPE) {
             return 0;
         }
 
         //IP
-        ip4h = (IP4Hdr *) (pkt+sizeof(EtherHdr));
-        p->ip4h	= (uint8_t *)ip4h;
-        if (ip4h->ip_proto != TCP_TYPE) {
+        p->ip4h = (IP4Hdr *)(pkt+sizeof(EtherHdr));
+        if (p->ip4h->ip_proto != TCP_TYPE) {
             return 0;
         }
 
         //TCP
-        tcph = (TCPHdr *) ((uint8_t*)ip4h+((ip4h->ip_verhl&0x0f)<<2));
-        p->tcph	= (uint8_t *)tcph;
-        if (ntohs(tcph->th_dport) != HTTP_PORT) {
+        p->tcph = (TCPHdr *) ((uint8_t*)ip4h+((ip4h->ip_verhl&0x0f)<<2));
+        if (ntohs(p->tcph->th_dport) != HTTP_PORT) {
             return 0;
         }
     }
@@ -211,9 +212,9 @@ Packet *exchange_for_respond_pkt(Packet *p, uint8_t flag)
 
     /* Swap layer 3 info. */
     struct in_addr ip_tmp;
-    memcpy(ip_tmp, &p->ip4h->s_ip_src, sizeof(struct in_addr));
+    memcpy(&ip_tmp, &p->ip4h->s_ip_src, sizeof(struct in_addr));
     memcpy(&p->ip4h->s_ip_src, &p->ip4h->s_ip_dst, sizeof(struct in_addr));
-    memcpy(&p->ip4h->s_ip_dst, ip_tmp, sizeof(struct in_addr));
+    memcpy(&p->ip4h->s_ip_dst, &ip_tmp, sizeof(struct in_addr));
 
     /* Swap layer 4 info. */
     uint16_t port_tmp;
@@ -233,7 +234,7 @@ int ReCalculateChecksum(Packet *p)
         if (PKT_IS_TCP(p)) {
             /* TCP */
             p->tcph->th_sum = 0;
-            p->tcph->th_sum = TCPCalculateChecksum(p->iph->s_ip_addrs,
+            p->tcph->th_sum = TCPCalculateChecksum(p->ip4h->s_ip_addrs,
                                                    (uint16_t *)p->tcph, (p->payload_len + TCP_GET_HLEN(p)));
         }
         /* IPV4 */

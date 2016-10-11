@@ -11,11 +11,11 @@
 #define PKT_SEND_COUNT     10000
 #define PKT_RECEIVE_COUNT  10000
 
-extern int ReCalculateChecksum(Packet *p);
-extern uint8_t afpacket_init(const char *dev_name, void **ctxt_ptr);
-extern int afpacket_start(void *handle);
-extern int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len);
-extern int afpacket_send(void *handle, Packet *p);
+//extern int ReCalculateChecksum(Packet *p);
+//extern uint8_t afpacket_init(const char *dev_name, void **ctxt_ptr);
+//extern int afpacket_start(void *handle);
+//extern int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len);
+//extern int afpacket_send(void *handle, Packet *p);
 
 void usage(char *prg, int exit_code)
 {
@@ -116,11 +116,11 @@ void *pkt_receive(void *data)
     AFCtx  *afctx  = (AFCtx*)data;
     int  i;
 
-    if (afpacket_init(afctx->iface, (void **)(&instance)) == 0) {
+    if (afpacket_init(afctx->iface, (void **)(&instance)) == AF_ERROR) {
         printf("afpacket_init fail , pkt_recv thread quit!\n");
         return ;
     }
-    if (afpacket_start((void *)instance) == -1) {
+    if (afpacket_start((void *)instance) == AF_ERROR) {
         printf("afpacket_start fail , pkt_send thread quit!\n");
         return ;
     }
@@ -196,11 +196,8 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
     ip4h.ip_ttl    = 64;
     ip4h.ip_proto  = 6;
     ip4h.ip_csum   = htons(29029);
-    struct in_addr_t *src = inet_addr("1.1.1.1");
-    struct in_addr_t *dst = inet_addr("10.60.20.10");
-
-    memcpy(&ip4h.s_ip_src, src, sizeof(struct in_addr));
-    memcpy(&ip4h.s_ip_dst, dst, sizeof(struct in_addr));
+    ip4h.s_ip_src.s_addr = inet_addr("1.1.1.1");
+    ip4h.s_ip_dst.s_addr = inet_addr("10.60.20.10");
 
     /* Layer 4: TCP header */
     tcph.th_sport  = htons(59609);
@@ -218,7 +215,7 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
     memcpy(p->pkt + len, &ip4h, sizeof(IP4Hdr));
     len += sizeof(IP4Hdr);
     memcpy(p->pkt + len, &tcph, sizeof(TCPHdr));
-    p->pktlen = len;
+    p->pkt_len = len;
     printf("pkt len is :%d\n", len);
 
     return 0;

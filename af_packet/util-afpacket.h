@@ -20,9 +20,13 @@
 extern "C" {
 #endif
 
+#define STATE_STOPPED         0
+#define STATE_STARTED         1
+
 #define IP_TYPE             (0x0800)
 #define TCP_TYPE            (0x06)
 #define AF_ERROR             -1
+#define HTTP_PORT            80
 
 typedef struct _AFPacketInstance
 {
@@ -36,7 +40,7 @@ typedef struct _AFPacketInstance
 typedef struct _Packet
 {
     uint8_t    *pkt;
-    uint32_t    pktlen;
+    uint32_t    pkt_len;
     EtherHdr    *ethh;
     IP4Hdr      *ip4h;
     TCPHdr      *tcph;

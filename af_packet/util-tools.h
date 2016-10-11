@@ -7,6 +7,8 @@
 #ifndef _UTIL_TOOLS_H
 #define _UTIL_TOOLS_H
 
+#include <pthread.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,6 +31,8 @@ extern "C" {
 #define TCP_GET_RAW_OFFSET(tcph)             (((tcph)->th_offx2 & 0xf0) >> 4)
 #define TCP_GET_OFFSET(p)                    TCP_GET_RAW_OFFSET((p)->tcph)
 #define TCP_GET_HLEN(p)                      (TCP_GET_OFFSET((p)) << 2)
+
+#define NOFILE                                1
 
 int daemon_init(void);
 int thread_set_cpu(pthread_t pid, int cpu_index, int cpu_num);

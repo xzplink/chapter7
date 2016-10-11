@@ -14,7 +14,7 @@ EXEC    = tcp-client tcp-server
 
 all: $(EXEC)
 
-$(OBJ_DIR)/tcp-client :  $(OBJS)
+$(OBJ_DIR)/tcp-client : $(OBJS)
 	$(CC) -o tcp-client $(OBJS)
 
 $(OBJ_DIR)/tcp-server :  $(OBJS)

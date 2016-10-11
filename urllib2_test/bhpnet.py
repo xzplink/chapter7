@@ -87,7 +87,7 @@ def server_loop():
         client_socket, addr = server.accept()
 
         # 分析一个线程处理的客户端
-        client_thread = thread.Thread(target=client_handler,args=(client_socket,))
+        client_thread = threading.Thread(target=client_handler,args=(client_socket,))
         client_thread.start()
 
 def run_command(command):
@@ -102,7 +102,7 @@ def run_command(command):
     # 将输出发送
     return output
 
-def client_hanlder(client_socket):
+def client_handler(client_socket):
     global upload
     global execute
     global command
