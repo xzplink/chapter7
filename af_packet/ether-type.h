@@ -17,10 +17,10 @@ typedef struct _ip {
      * must be the last field in this struct */
     union
     {
-        u_int8_t  u6_addr8[16];
-        u_int16_t u6_addr16[8];
-        u_int32_t u6_addr32[4];
-//        u_int64_t    u6_addr64[2];
+        uint8_t  u6_addr8[16];
+        uint16_t u6_addr16[8];
+        uint32_t u6_addr32[4];
+//        uint64_t    u6_addr64[2];
     } ip;
 #define ip8  ip.u6_addr8
 #define ip16 ip.u6_addr16
@@ -40,7 +40,7 @@ typedef struct _EtherHdr
 
 }  EtherHdr;
 
-typedef struct _IPHdr
+typedef struct _IP4Hdr
 {
     uint8_t ip_verhl;      /* version & header length */
     uint8_t ip_tos;        /* type of service */
@@ -50,23 +50,18 @@ typedef struct _IPHdr
     uint8_t ip_ttl;        /* time to live field */
     uint8_t ip_proto;      /* datagram protocol */
     uint16_t ip_csum;      /* checksum */
-    struct in_addr ip_src;  /* source IP */
-    struct in_addr ip_dst;  /* dest IP */
-} IPHdr;
-
-typedef struct _IPv4Hdr
-{
-    uint8_t ip_verhl;      /* version & header length */
-    uint8_t ip_tos;        /* type of service */
-    uint16_t ip_len;       /* datagram length */
-    uint16_t ip_id;        /* identification  */
-    uint16_t ip_off;       /* fragment offset */
-    uint8_t ip_ttl;        /* time to live field */
-    uint8_t ip_proto;      /* datagram protocol */
-    uint16_t ip_csum;      /* checksum */
-    sfip_t ip_src;          /* source IP */
-    sfip_t ip_dst;          /* dest IP */
+    union {
+        struct {
+            struct in_addr ip_src;  /* source IP */
+            struct in_addr ip_dst;  /* dest IP */
+        }ip4_un1;
+        uint16_t ip_addrs[4];
+    }ip4_hdrun1;
 } IP4Hdr;
+
+#define s_ip_src                          ip4_hdrun1.ip4_un1.ip_src
+#define s_ip_dst                          ip4_hdrun1.ip4_un1.ip_dst
+#define s_ip_addrs                        ip4_hdrun1.ip_addrs
 
 typedef struct _IPv6Hdr
 {

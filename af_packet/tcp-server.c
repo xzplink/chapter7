@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 {
     AFPacketInstance    *instance;
     Packet    p, *new_pkt;
-    p.pkt   = calloc(200000,1);
+    p.pkt   = calloc(20000,1);
     uint64_t   pkt_len;
 
     if (argc!=2)
@@ -35,12 +35,16 @@ int main(int argc, char* argv[])
     }
 
     while(1){
-        pkt_len = afpacket_acquire(instance, &p, 200000);
-
-        new_pkt = change_to_respond_pkt(&p);
-
-        if (pkt_len>0) {
-            afpacket_send(instance, new_pkt);
+        pkt_len = afpacket_acquire(instance, &p, 20000);
+        if(pkt_len>0){
+            /* Just deal with ACK pkt from client, not (SYN|ACK) */
+             if((p.tcph->th_flags & TH_ACK) && !(p.tcph->th_flags & TH_SYN)){
+                 continue;
+             } else if (p.tcph->th_flags & TH_SYN) {
+                 new_pkt = exchange_for_respond_pkt(&p, (TH_SYN|TH_ACK));
+                 ReCalculateChecksum(new_pkt);
+                 afpacket_send(instance, new_pkt);
+            }
         }
     }
 }

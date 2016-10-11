@@ -11,6 +11,8 @@
 #include "util-afpacket.h"
 #include "util-tools.h"
 
+#define PKT_SEND_COUNT     10000
+#define PKT_RECEIVE_COUNT  10000
 
 void usage(char *prg, int exit_code)
 {
@@ -77,65 +79,157 @@ int parse_cmd_line(int argc, char** argv, AFCtx *afctx)
 void *pkt_send(void *data)
 {
     AFPacketInstance    *instance;
-    SEND_ARG            *p_send_arg     = (SEND_ARG*)data;
-    u_int32_t           send_num        = p_send_arg->send_num;
-    u_int32_t           gap_time        = p_send_arg->gap_time;
-    u_int32_t           repick_times    = p_send_arg->repick_times;
-    Pkt_Buf             *p_http_pkt     = p_send_arg->p_http_pkt;
-    u_int8_t            *p_eth          = p_send_arg->p_eth;
-    u_int32_t           i;
-    if (afpacket_init(p_eth, (void **)(&instance)) == 0)
-    {
+    AFCtx  *afctx  = (AFCtx*)data;
+    Packet *p = afctx->pkt;
+
+    int  i, send_success = -1;
+
+    if (afpacket_init(afctx->iface, (void **)(&instance)) == 0) {
         printf("afpacket_init fail , pkt_recv thread quit!\n");
         return ;
     }
-    if (afpacket_start((void *)instance) == -1)
-    {
+    if (afpacket_start((void *)instance) == -1) {
         printf("afpacket_start fail , pkt_send thread quit!\n");
         return ;
     }
 
     printf("into pkt_send thread\n");
-    for(i=0; (i<send_num)||(send_num==0); i++)
-    {
-        u_int8_t send_success;
-        g_repick_time++;
-        if ((g_repick_time%repick_times) == 0)
-        {
-            (((Ip_Header*)(p_http_pkt->p_ip_header))->sourceIP)++;  //sourceip change for test
-        }
+    for(i = 0; i < PKT_SEND_COUNT; i++) {
+        (((IP4Hdr*)(p->ip4h))->s_ip_src)++;  //ip_src change for test
 
-        send_success = afpacket_send(instance,p_http_pkt);
-
-        if (gap_time != 0)
-        {
-            usleep(gap_time);
-        }
-
-        if (send_success<=0)
-        {
+        send_success = afpacket_send(instance, p);
+        if (send_success <= 0) {
             printf("afpcket_send fail!\n");
         }
     }
+}
 
+void *pkt_receive(void *data)
+{
+    AFPacketInstance    *instance;
+    Packet    p, *new_pkt;
+    p.pkt   = calloc(20000,1);
+    uint64_t   pkt_len;
+    AFCtx  *afctx  = (AFCtx*)data;
+    int  i;
+
+    if (afpacket_init(afctx->iface, (void **)(&instance)) == 0) {
+        printf("afpacket_init fail , pkt_recv thread quit!\n");
+        return ;
+    }
+    if (afpacket_start((void *)instance) == -1) {
+        printf("afpacket_start fail , pkt_send thread quit!\n");
+        return ;
+    }
+
+    printf("into pkt_receive thread\n");
+    for(i = 0; i < PKT_RECEIVE_COUNT; i++) {
+        pkt_len = afpacket_acquire(instance, &p, 20000);
+        if (pkt_len>0) {
+            /* Just deal with (SYN|ACK) pkt from server */
+            if(p.tcph->th_flags & (TH_SYN|TH_ACK)) {
+                new_pkt = exchange_for_respond_pkt(&p, TH_ACK);
+                ReCalculateChecksum(new_pkt);
+                afpacket_send(instance, new_pkt);
+            }
+        }
+    }
+}
+
+int construct_pkt_fun(AFCtx *afCtx, Packet *p)
+{
+    EtherHdr        eh;
+    IP4Hdr          ip4h;
+    TCPHdr          tcph;
+    uint32_t        len = 0;
+
+    memset(&eh, 0, sizeof(EtherHdr));
+    memset(&ip4h, 0, sizeof(IP4Hdr));
+    memset(&tcph, 0, sizeof(TCPHdr));
+
+    /* Layer 2 :Ether header */
+    p_pos = afctx.src_mac;
+    printf("src_mac:%s\n",p_pos);
+    for(p_str = p_pos,i = 0; *p_pos != '\0' && i < 6; p_pos++){
+        if(*p_pos != ':' && *(p_pos+1) != '\0'){
+            continue;
+        }
+        if(*p_pos == ':'){
+            *p_pos = '\0';
+        }
+        if(strlen(p_str) > 0){
+            eh.ether_src[i] = strtol(p_str, NULL, 16);
+            i++;
+        }
+        p_str = p_pos + 1;
+    }
+
+    p_pos = afctx.dst_mac;
+    printf("dst_mac:%s\n",p_pos);
+    for(p_str = p_pos,i = 0; *p_pos != '\0' && i < 6; p_pos++){
+        if(*p_pos != ':' && *(p_pos+1) != '\0'){
+            continue;
+        }
+        if(*p_pos == ':'){
+            *p_pos = '\0';
+        }
+        if(strlen(p_str) > 0){
+            eh.ether_dst[i] = strtol(p_str, NULL, 16);
+            i++;
+        }
+        p_str = p_pos + 1;
+    }
+    eh.ether_type = 2048;
+
+    /* Layer 3: IP header */
+    ip4h.ip_verhl  = 69;
+    ip4h.ip_tos    = 00;
+    ip4h.ip_len    = 526;
+    ip4h.ip_id     = 8616;
+    ip4h.ip_off    = 16384;
+    ip4h.ip_ttl    = 64;
+    ip4h.ip_proto  = 6;
+    ip4h.ip_csum   = 29029;
+    ip4h.s_ip_src    = 1.1.1.1;
+    ip4h.s_ip_dst    = 10.60.20.10;
+
+    /* Layer 4: TCP header */
+    tcph.th_sport  = 59609;
+    tcph.th_dport  = 80;
+    tcph.th_seq    = htonl(1);
+    tcph.th_ack    = 0;
+    tcph.th_offx2  = 80;
+    tcph.th_flags  = TH_SYN;
+    tcph.th_win    = 260;
+    tcph.th_sum    = 52317;
+    tcph.th_urp    = 0;
+
+    memcpy(p->pkt, &eh, sizeof(EtherHdr));
+    len = sizeof(EtherHdr);
+    memcpy(p->pkt + len, &ip4h, sizeof(IP4Hdr));
+    len += sizeof(IP4Hdr);
+    memcpy(p->pkt + len, &tcph, sizeof(TCPHdr));
+    p->pktlen = len;
+    printf("pkt len is :%d\n", len);
+
+    return 0;
 }
 
 void main(int argc, char* argv[])
 {
-    AFCtx afctx;
     AFPacketInstance    *instance;
-    pthread_t          tid[100];
+    pthread_t          tid[10];
     Packet             p;
-    EtherHdr eh;
-    IPHdr iph;
-    TCPHdr tcph;
-    int  cpu_index;
+    AFCtx           afctx;
 
-    p.pkt        = calloc(2000,1);
+    int  i, cpu_index = 1;
+    char *p_str   = NULL;
+    char *p_pos  = NULL;
+    int cpu_start = 1;
+
     memset(&afctx, 0, sizeof(AFCtx));
-    memset(&eh, 0, sizeof(EtherHdr));
-    memset(&iph, 0, sizeof(IPHdr));
-    memset(&tcph, 0, sizeof(TCPHdr));
+    memset(&p, 0 , sizeof(Packet));
+    p.pkt  = calloc(20000,1);
 
     parse_cmd_line(argc, argv, &afctx);
 
@@ -145,35 +239,31 @@ void main(int argc, char* argv[])
             exit(0);
         }
     }
+    /* TDD: Construct a Packet for send here, to be done. */
+    construct_pkt_fun(afctx, &p);
+    ReCalculateChecksum(&p);
+    afctx.pkt = &p;
 
-    strcpy(&eh.ether_src, afctx.src_mac);
-    strcpy(&eh.ether_dst, afctx.src_mac);
-
-    p.pkt_len    = len;
-    printf("len:%d\n", len);
-
-
-    if (afctx.thread_num > 100)
-    {
-        printf("thread num >100");
-    }
-    for(i=0; i<thread_num; i++)
-    {
-        if (pthread_create(&tid[i], NULL, pkt_send, (void*)&afctx) != 0)
-        {
-            printf("create pkt_send thread failed!\n");
-            return;
+    for(i = 0; i < afctx.thread_num; i++){
+        if(i % 2 == 0){
+            if (pthread_create(&tid[i], NULL, pkt_send, (void*)&afctx) != 0) {
+                printf("create pkt_send thread failed!\n");
+                return;
+            }
+        } else {
+            if (pthread_create(&tid[i], NULL, pkt_receive, (void*)&afctx) != 0) {
+                printf("create pkt_receive thread failed!\n");
+                return;
+            }
         }
         cpu_index   = (i+cpu_start)%(sysconf(_SC_NPROCESSORS_CONF));
-        if (thread_set_cpu(tid[i], cpu_index, sysconf(_SC_NPROCESSORS_CONF)) == 0)
-        {
-            printf("recv thread%d set cpu failed!\n", i);
+        if (thread_set_cpu(tid[i], cpu_index, sysconf(_SC_NPROCESSORS_CONF)) == 0) {
+            printf("create thread[%d] set cpu failed!\n", i);
             return;
         }
     }
 
-    while(1)
-    {
+    while(1) {
         sleep(100);
     }
 }
