@@ -4,7 +4,6 @@
  * on 2016/10/10.
  */
 
-#include "ether-type.h"
 #include "util-afpacket.h"
 #include "util-tools.h"
 

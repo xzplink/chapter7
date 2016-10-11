@@ -7,7 +7,9 @@
 #ifndef _UTIL_TOOLS_H
 #define _UTIL_TOOLS_H
 
-#include <pthread.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PKT_IS_IPV4(p)      (((p)->ip4h != NULL))
 #define PKT_IS_TCP(p)       (((p)->tcph != NULL))
@@ -30,8 +32,12 @@
 
 int daemon_init(void);
 int thread_set_cpu(pthread_t pid, int cpu_index, int cpu_num);
-static inline uint16_t TCPCalculateChecksum(uint16_t *shdr, uint16_t *pkt,
+inline uint16_t TCPCalculateChecksum(uint16_t *shdr, uint16_t *pkt,
                                             uint16_t tlen);
-static inline uint16_t IPV4CalculateChecksum(uint16_t *, uint16_t);
+inline uint16_t IPV4CalculateChecksum(uint16_t *, uint16_t);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //_UTIL_TOOLS_H

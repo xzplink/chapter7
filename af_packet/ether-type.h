@@ -8,6 +8,16 @@
 #define _ETHER_TYPE_H_H
 
 #include <sys/types.h>
+#include <arpa/inet.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef unsigned char      uint8_t;
+typedef unsigned short     uint16_t;
+typedef unsigned int       uint32_t;
+//typedef unsigned long long uint64_t;
 
 typedef struct _ip {
     int family;
@@ -123,5 +133,9 @@ typedef struct _UDPHdr
     uint16_t uh_chk;
 
 } UDPHdr;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //_ETHER_TYPE_H_H

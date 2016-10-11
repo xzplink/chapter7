@@ -4,10 +4,8 @@
  * on 2016/10/10.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include "util-afpacket.h"
+#include "util-tools.h"
 
 int main(int argc, char* argv[])
 {

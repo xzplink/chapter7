@@ -7,8 +7,13 @@
 #ifndef _UTIL_AFPACKET_H
 #define _UTIL_AFPACKET_H
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <pthread.h>
 #include <sys/socket.h>
 #include <linux/if_arp.h>
+#include <unistd.h>
 #include "ether-type.h"
 
 #ifdef __cplusplus
@@ -49,13 +54,14 @@ typedef struct _AFCtx{
     uint8_t  *iface;
 }AFCtx;
 
-extern uint8_t afpacket_init(const char *dev_name, void **ctxt_ptr);
-extern int afpacket_start(void *handle);
-extern int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len);
-extern int afpacket_send(void *handle, Packet *p);
-extern int afpacket_close(void *handle);
+uint8_t afpacket_init(const char *dev_name, void **ctxt_ptr);
+int afpacket_start(void *handle);
+int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len);
+int afpacket_send(void *handle, Packet *p);
+int afpacket_close(void *handle);
 Packet *exchange_for_respond_pkt(Packet *p, uint8_t flag);
 int ReCalculateChecksum(Packet *p);
+
 #ifdef __cplusplus
 }
 #endif

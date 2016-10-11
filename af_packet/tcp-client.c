@@ -4,15 +4,18 @@
  * on 2016/10/10.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <getopt.h>
 #include "util-afpacket.h"
 #include "util-tools.h"
 
 #define PKT_SEND_COUNT     10000
 #define PKT_RECEIVE_COUNT  10000
+
+extern int ReCalculateChecksum(Packet *p);
+extern uint8_t afpacket_init(const char *dev_name, void **ctxt_ptr);
+extern int afpacket_start(void *handle);
+extern int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len);
+extern int afpacket_send(void *handle, Packet *p);
 
 void usage(char *prg, int exit_code)
 {
@@ -58,7 +61,7 @@ int parse_cmd_line(int argc, char** argv, AFCtx *afctx)
                 afctx->dst_mac = optarg;
                 break;
             case 'c':
-                afctx->thread_num = optarg;
+                afctx->thread_num = *optarg;
                 break;
             case 'D':
                 afctx->daemon = 1;
@@ -95,7 +98,7 @@ void *pkt_send(void *data)
 
     printf("into pkt_send thread\n");
     for(i = 0; i < PKT_SEND_COUNT; i++) {
-        (((IP4Hdr*)(p->ip4h))->s_ip_src)++;  //ip_src change for test
+//        ((uint32_t *)(&p->ip4h->s_ip_src))++;  //ip_src change for test
 
         send_success = afpacket_send(instance, p);
         if (send_success <= 0) {
@@ -136,19 +139,22 @@ void *pkt_receive(void *data)
     }
 }
 
-int construct_pkt_fun(AFCtx *afCtx, Packet *p)
+int construct_pkt_fun(AFCtx *afctx, Packet *p)
 {
     EtherHdr        eh;
     IP4Hdr          ip4h;
     TCPHdr          tcph;
     uint32_t        len = 0;
+    char            *p_str = NULL;
+    char            *p_pos = NULL;
+    int i;
 
     memset(&eh, 0, sizeof(EtherHdr));
     memset(&ip4h, 0, sizeof(IP4Hdr));
     memset(&tcph, 0, sizeof(TCPHdr));
 
     /* Layer 2 :Ether header */
-    p_pos = afctx.src_mac;
+    p_pos = afctx->src_mac;
     printf("src_mac:%s\n",p_pos);
     for(p_str = p_pos,i = 0; *p_pos != '\0' && i < 6; p_pos++){
         if(*p_pos != ':' && *(p_pos+1) != '\0'){
@@ -164,7 +170,7 @@ int construct_pkt_fun(AFCtx *afCtx, Packet *p)
         p_str = p_pos + 1;
     }
 
-    p_pos = afctx.dst_mac;
+    p_pos = afctx->dst_mac;
     printf("dst_mac:%s\n",p_pos);
     for(p_str = p_pos,i = 0; *p_pos != '\0' && i < 6; p_pos++){
         if(*p_pos != ':' && *(p_pos+1) != '\0'){
@@ -179,29 +185,32 @@ int construct_pkt_fun(AFCtx *afCtx, Packet *p)
         }
         p_str = p_pos + 1;
     }
-    eh.ether_type = 2048;
+    eh.ether_type = htons(2048);
 
     /* Layer 3: IP header */
     ip4h.ip_verhl  = 69;
     ip4h.ip_tos    = 00;
-    ip4h.ip_len    = 526;
-    ip4h.ip_id     = 8616;
-    ip4h.ip_off    = 16384;
+    ip4h.ip_len    = htons(526);
+    ip4h.ip_id     = htons(8616);
+    ip4h.ip_off    = htons(16384);
     ip4h.ip_ttl    = 64;
     ip4h.ip_proto  = 6;
-    ip4h.ip_csum   = 29029;
-    ip4h.s_ip_src    = 1.1.1.1;
-    ip4h.s_ip_dst    = 10.60.20.10;
+    ip4h.ip_csum   = htons(29029);
+    struct in_addr_t *src = inet_addr("1.1.1.1");
+    struct in_addr_t *dst = inet_addr("10.60.20.10");
+
+    memcpy(&ip4h.s_ip_src, src, sizeof(struct in_addr));
+    memcpy(&ip4h.s_ip_dst, dst, sizeof(struct in_addr));
 
     /* Layer 4: TCP header */
-    tcph.th_sport  = 59609;
-    tcph.th_dport  = 80;
+    tcph.th_sport  = htons(59609);
+    tcph.th_dport  = htons(80);
     tcph.th_seq    = htonl(1);
     tcph.th_ack    = 0;
     tcph.th_offx2  = 80;
     tcph.th_flags  = TH_SYN;
-    tcph.th_win    = 260;
-    tcph.th_sum    = 52317;
+    tcph.th_win    = htons(260);
+    tcph.th_sum    = htons(52317);
     tcph.th_urp    = 0;
 
     memcpy(p->pkt, &eh, sizeof(EtherHdr));
@@ -215,7 +224,7 @@ int construct_pkt_fun(AFCtx *afCtx, Packet *p)
     return 0;
 }
 
-void main(int argc, char* argv[])
+void main(int argc, char **argv)
 {
     AFPacketInstance    *instance;
     pthread_t          tid[10];
@@ -223,8 +232,6 @@ void main(int argc, char* argv[])
     AFCtx           afctx;
 
     int  i, cpu_index = 1;
-    char *p_str   = NULL;
-    char *p_pos  = NULL;
     int cpu_start = 1;
 
     memset(&afctx, 0, sizeof(AFCtx));
@@ -240,7 +247,7 @@ void main(int argc, char* argv[])
         }
     }
     /* TDD: Construct a Packet for send here, to be done. */
-    construct_pkt_fun(afctx, &p);
+    construct_pkt_fun(&afctx, &p);
     ReCalculateChecksum(&p);
     afctx.pkt = &p;
 
