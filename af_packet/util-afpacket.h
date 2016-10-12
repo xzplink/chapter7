@@ -22,19 +22,24 @@ extern "C" {
 
 #define STATE_STOPPED         0
 #define STATE_STARTED         1
+#define VLAN_TAG_LEN          4
 
 #define IP_TYPE             (0x0800)
 #define TCP_TYPE            (0x06)
 #define AF_ERROR             -1
-#define HTTP_PORT            80
+#define AF_SUCCESS           0
+#define HTTP_PORT            22
 
 typedef struct _AFPacketInstance
 {
     char        *name;
-    int         fd;
-    int         index;
-    struct      sockaddr_ll sll;
-    uint8_t     state;
+    int          fd;
+    uint32_t     index;
+    struct       sockaddr_ll sll;
+    uint32_t     tp_version;
+    uint32_t     tp_hdrlen;
+
+    uint8_t       state;
 } AFPacketInstance;
 
 typedef struct _Packet
@@ -65,6 +70,7 @@ int afpacket_send(void *handle, Packet *p);
 int afpacket_close(void *handle);
 Packet *exchange_for_respond_pkt(Packet *p, uint8_t flag);
 int ReCalculateChecksum(Packet *p);
+int print_packet_info(Packet *p);
 
 #ifdef __cplusplus
 }

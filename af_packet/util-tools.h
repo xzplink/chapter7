@@ -7,6 +7,10 @@
 #ifndef _UTIL_TOOLS_H
 #define _UTIL_TOOLS_H
 
+#ifndef __USE_GNU
+#define __USE_GNU
+#endif
+#include <sched.h>
 #include <pthread.h>
 
 #ifdef __cplusplus
@@ -28,11 +32,15 @@ extern "C" {
 /** Echo Congestion flag */
 #define TH_CWR                               0x80
 
+
+#define IPV4_GET_RAW_HLEN(ip4h)              ((ip4h)->ip_verhl & 0x0f)
+#define IPV4_GET_HLEN(p)                     (IPV4_GET_RAW_HLEN((p)->ip4h) << 2)
 #define TCP_GET_RAW_OFFSET(tcph)             (((tcph)->th_offx2 & 0xf0) >> 4)
 #define TCP_GET_OFFSET(p)                    TCP_GET_RAW_OFFSET((p)->tcph)
 #define TCP_GET_HLEN(p)                      (TCP_GET_OFFSET((p)) << 2)
+#define IPV4_GET_RAW_HLEN(ip4h)              ((ip4h)->ip_verhl & 0x0f)
 
-#define NOFILE                                1
+#define NOFILE                                1024
 
 int daemon_init(void);
 int thread_set_cpu(pthread_t pid, int cpu_index, int cpu_num);

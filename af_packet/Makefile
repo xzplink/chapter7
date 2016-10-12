@@ -4,21 +4,20 @@ CC           = gcc
 
 OBJ_DIR     = ./obj
 OBJS        = $(OBJ_DIR)/util-afpacket.o \
-              $(OBJ_DIR)/util-tools.o    \
-              $(OBJ_DIR)/tcp-client.o    \
-              $(OBJ_DIR)/tcp-server.o
+              $(OBJ_DIR)/util-tools.o
+
 
 HEADS   = util-tools.h util-afpacket.h ether-type.h
 
-EXEC    = tcp-client tcp-server
+EXEC    = tcp-server tcp-client
 
 all: $(EXEC)
 
-$(OBJ_DIR)/tcp-client : $(OBJS)
-	$(CC) -o tcp-client $(OBJS)
+tcp-client : $(OBJS) $(OBJ_DIR)/tcp-client.o
+	$(CC) $(OBJS) $(OBJ_DIR)/tcp-client.o -o tcp-client -lpthread -lm
 
-$(OBJ_DIR)/tcp-server :  $(OBJS)
-	$(CC) -o tcp-server $(OBJS) -lpthread -lm -static
+tcp-server :  $(OBJS) $(OBJ_DIR)/tcp-server.o
+	$(CC) $(OBJS) $(OBJ_DIR)/tcp-server.o -o tcp-server -lpthread -lm
 
 $(OBJ_DIR)/util-afpacket.o : util-afpacket.c $(HEADS)
 	$(CC)  -c util-afpacket.c -o $(OBJ_DIR)/util-afpacket.o

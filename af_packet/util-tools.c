@@ -7,8 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#include <sys/stat.h>
 #include <fcntl.h>
-#include <sched.h>
 #include "ether-type.h"
 #include "util-tools.h"
 
@@ -80,7 +81,7 @@ int thread_set_cpu(pthread_t pid, int cpu_index, int cpu_num)
     {
         if (CPU_ISSET(i, &get))
         {
-            printf("thread %d is running in processor %d\n", (int)pid, i);
+            printf("thread %u is running in processor %d\n", (uint32_t)pid, i);
         }
     }
 
@@ -205,3 +206,4 @@ inline uint16_t IPV4CalculateChecksum(uint16_t *pkt, uint16_t hlen)
 
     return (uint16_t) ~csum;
 }
+

@@ -24,8 +24,8 @@ void usage(char *prg, int exit_code)
     printf("  -i, --ether              set bind ether interface\n");
     printf("  -s, --smac               set source Mac Address\n");
     printf("  -d, --dmac               set destination Mac Address\n");
-    printf("  -c, --count              set running thread count");
-    printf("  -D, --daemon             run in daemon mode");
+    printf("  -c, --count              set running thread count\n");
+    printf("  -D, --daemon             run in daemon mode\n");
     printf("  -v, --verbose            be verbose\n");
     printf("  -h, --help               display this help and exit\n");
     exit(exit_code);
@@ -61,7 +61,7 @@ int parse_cmd_line(int argc, char** argv, AFCtx *afctx)
                 afctx->dst_mac = optarg;
                 break;
             case 'c':
-                afctx->thread_num = *optarg;
+                afctx->thread_num = atoi(optarg);
                 break;
             case 'D':
                 afctx->daemon = 1;
@@ -84,27 +84,28 @@ void *pkt_send(void *data)
     AFPacketInstance    *instance;
     AFCtx  *afctx  = (AFCtx*)data;
     Packet *p = afctx->pkt;
-
     int  i, send_success = -1;
 
-    if (afpacket_init(afctx->iface, (void **)(&instance)) == 0) {
-        printf("afpacket_init fail , pkt_recv thread quit!\n");
-        return ;
+    if (afpacket_init(afctx->iface, (void **)(&instance)) == AF_ERROR) {
+        printf("afpacket_init fail , pkt_send thread quit!\n");
+        goto error;
     }
-    if (afpacket_start((void *)instance) == -1) {
+    if (afpacket_start((void *)instance) == AF_ERROR) {
         printf("afpacket_start fail , pkt_send thread quit!\n");
-        return ;
+        goto error;
     }
 
-    printf("into pkt_send thread\n");
+    printf("[*] into pkt_send thread.\n");
     for(i = 0; i < PKT_SEND_COUNT; i++) {
-//        ((uint32_t *)(&p->ip4h->s_ip_src))++;  //ip_src change for test
+        p->ip4h->s_ip_src.s_addr=(in_addr_t )1;  //ip_src change for test
 
-        send_success = afpacket_send(instance, p);
-        if (send_success <= 0) {
-            printf("afpcket_send fail!\n");
-        }
+//        send_success = afpacket_send(instance, p);
+//        if (send_success <= 0) {
+//            printf("afpcket_send fail!\n");
+//        }
     }
+    error:
+    afpacket_close(instance);
 }
 
 void *pkt_receive(void *data)
@@ -118,14 +119,14 @@ void *pkt_receive(void *data)
 
     if (afpacket_init(afctx->iface, (void **)(&instance)) == AF_ERROR) {
         printf("afpacket_init fail , pkt_recv thread quit!\n");
-        return ;
+        goto error;
     }
     if (afpacket_start((void *)instance) == AF_ERROR) {
-        printf("afpacket_start fail , pkt_send thread quit!\n");
-        return ;
+        printf("afpacket_start fail , pkt_recv thread quit!\n");
+        goto error;
     }
 
-    printf("into pkt_receive thread\n");
+    printf("[*] into pkt_receive thread.\n");
     for(i = 0; i < PKT_RECEIVE_COUNT; i++) {
         pkt_len = afpacket_acquire(instance, &p, 20000);
         if (pkt_len>0) {
@@ -137,6 +138,8 @@ void *pkt_receive(void *data)
             }
         }
     }
+    error:
+    afpacket_close(instance);
 }
 
 int construct_pkt_fun(AFCtx *afctx, Packet *p)
@@ -210,13 +213,14 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
     tcph.th_sum    = htons(52317);
     tcph.th_urp    = 0;
 
+    /* Fill the construct content into packet */
     memcpy(p->pkt, &eh, sizeof(EtherHdr));
     len = sizeof(EtherHdr);
     memcpy(p->pkt + len, &ip4h, sizeof(IP4Hdr));
     len += sizeof(IP4Hdr);
     memcpy(p->pkt + len, &tcph, sizeof(TCPHdr));
-    p->pkt_len = len;
-    printf("pkt len is :%d\n", len);
+    p->pkt_len = len + sizeof(TCPHdr);
+    printf("pkt len is :%d\n", p->pkt_len);
 
     return 0;
 }
@@ -231,6 +235,9 @@ void main(int argc, char **argv)
     int  i, cpu_index = 1;
     int cpu_start = 1;
 
+    if (argc < 2){
+        usage(argv[0], 0);
+    }
     memset(&afctx, 0, sizeof(AFCtx));
     memset(&p, 0 , sizeof(Packet));
     p.pkt  = calloc(20000,1);
@@ -247,7 +254,7 @@ void main(int argc, char **argv)
     construct_pkt_fun(&afctx, &p);
     ReCalculateChecksum(&p);
     afctx.pkt = &p;
-
+    printf("thread num is :%d\n", afctx.thread_num);
     for(i = 0; i < afctx.thread_num; i++){
         if(i % 2 == 0){
             if (pthread_create(&tid[i], NULL, pkt_send, (void*)&afctx) != 0) {
@@ -261,6 +268,7 @@ void main(int argc, char **argv)
             }
         }
         cpu_index   = (i+cpu_start)%(sysconf(_SC_NPROCESSORS_CONF));
+        printf("tid[%d] is :%u\n", i, tid[i]);
         if (thread_set_cpu(tid[i], cpu_index, sysconf(_SC_NPROCESSORS_CONF)) == 0) {
             printf("create thread[%d] set cpu failed!\n", i);
             return;
