@@ -13,6 +13,7 @@ int main(int argc, char* argv[])
     Packet    p, *new_pkt;
     p.pkt   = calloc(2000,1);
     uint64_t   pkt_len;
+    uint32_t   i = 0, send_success = -1;
 
     if (argc!=2) {
         printf("ethx num_per_printf !\n");
@@ -33,18 +34,21 @@ int main(int argc, char* argv[])
         memset(p.pkt, 0, 2000);
         pkt_len = afpacket_acquire(instance, &p, 2000);
         if(pkt_len>0){
+            printf("[*] we have receive :%d pkts.\n", ++i);
             /* Just deal with ACK pkt from client, not (SYN|ACK) */
              if((p.tcph->th_flags & TH_ACK) && !(p.tcph->th_flags & TH_SYN)){
                  printf("^^^^^^^^^^^^^^^^^^^^^^\n");
                  continue;
              } else if (p.tcph->th_flags & TH_SYN) {
-                 printf("aaaaaaaaaa\n");
                  new_pkt = exchange_for_respond_pkt(&p, (TH_SYN|TH_ACK));
-                 printf("bbbbbbbbbbbb\n");
                  ReCalculateChecksum(new_pkt);
-                 printf("ccccccccccc\n");
-                 afpacket_send(instance, new_pkt);
-                 printf("dddddddddddd\n");
+                 send_success = afpacket_send(instance, new_pkt);
+                 if (send_success <= 0) {
+                     printf("afpcket_send fail!\n");
+                 } else{
+                     printf("[*] we have send :%d (SYN|ACK) pkts.\n", ++i);
+                 }
+
             }
         }
     }

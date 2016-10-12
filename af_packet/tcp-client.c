@@ -8,14 +8,9 @@
 #include "util-afpacket.h"
 #include "util-tools.h"
 
-#define PKT_SEND_COUNT     10000
-#define PKT_RECEIVE_COUNT  10000
+#define PKT_SEND_COUNT     5
+#define PKT_RECEIVE_COUNT  5
 
-//extern int ReCalculateChecksum(Packet *p);
-//extern uint8_t afpacket_init(const char *dev_name, void **ctxt_ptr);
-//extern int afpacket_start(void *handle);
-//extern int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len);
-//extern int afpacket_send(void *handle, Packet *p);
 
 void usage(char *prg, int exit_code)
 {
@@ -97,12 +92,14 @@ void *pkt_send(void *data)
 
     printf("[*] into pkt_send thread.\n");
     for(i = 0; i < PKT_SEND_COUNT; i++) {
-        p->ip4h->s_ip_src.s_addr=(in_addr_t )1;  //ip_src change for test
+        (uint32_t)p->ip4h->s_ip_src.s_addr++;  //ip_src change for test
 
-//        send_success = afpacket_send(instance, p);
-//        if (send_success <= 0) {
-//            printf("afpcket_send fail!\n");
-//        }
+        send_success = afpacket_send(instance, p);
+        if (send_success <= 0) {
+            printf("afpcket_send fail!\n");
+        } else{
+            printf("[*] we have send :%d pkts.\n", i);
+        }
     }
     error:
     afpacket_close(instance);
@@ -115,7 +112,7 @@ void *pkt_receive(void *data)
     p.pkt   = calloc(20000,1);
     uint64_t   pkt_len;
     AFCtx  *afctx  = (AFCtx*)data;
-    int  i;
+    int  i, j, send_success = -1;;
 
     if (afpacket_init(afctx->iface, (void **)(&instance)) == AF_ERROR) {
         printf("afpacket_init fail , pkt_recv thread quit!\n");
@@ -127,14 +124,20 @@ void *pkt_receive(void *data)
     }
 
     printf("[*] into pkt_receive thread.\n");
-    for(i = 0; i < PKT_RECEIVE_COUNT; i++) {
+    for(i = 0, j = 0; i < PKT_RECEIVE_COUNT; i++) {
         pkt_len = afpacket_acquire(instance, &p, 20000);
         if (pkt_len>0) {
+            printf("[*] we have receive :%d pkts.\n", i);
             /* Just deal with (SYN|ACK) pkt from server */
             if(p.tcph->th_flags & (TH_SYN|TH_ACK)) {
                 new_pkt = exchange_for_respond_pkt(&p, TH_ACK);
                 ReCalculateChecksum(new_pkt);
-                afpacket_send(instance, new_pkt);
+                send_success = afpacket_send(instance, new_pkt);
+                if (send_success <= 0) {
+                    printf("afpcket_send fail!\n");
+                } else{
+                    printf("[*] we have send :%d pkts.\n", ++j);
+                }
             }
         }
     }
@@ -204,7 +207,7 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
 
     /* Layer 4: TCP header */
     tcph.th_sport  = htons(59609);
-    tcph.th_dport  = htons(80);
+    tcph.th_dport  = htons(22);
     tcph.th_seq    = htonl(1);
     tcph.th_ack    = 0;
     tcph.th_offx2  = 80;
@@ -214,13 +217,21 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
     tcph.th_urp    = 0;
 
     /* Fill the construct content into packet */
-    memcpy(p->pkt, &eh, sizeof(EtherHdr));
+    p->ethh = (EtherHdr *)(p->pkt);
+    memcpy(p->ethh, &eh, sizeof(EtherHdr));
     len = sizeof(EtherHdr);
-    memcpy(p->pkt + len, &ip4h, sizeof(IP4Hdr));
+
+    p->ip4h = (IP4Hdr *)(p->pkt + len);
+    memcpy(p->ip4h, &ip4h, sizeof(IP4Hdr));
     len += sizeof(IP4Hdr);
-    memcpy(p->pkt + len, &tcph, sizeof(TCPHdr));
+
+    p->tcph = (TCPHdr *)(p->ip4h + IPV4_GET_HLEN(p));
+    memcpy(p->tcph, &tcph, sizeof(TCPHdr));
     p->pkt_len = len + sizeof(TCPHdr);
     printf("pkt len is :%d\n", p->pkt_len);
+    printf("p->ip4h->ip_csum is :%d\n", ntohs(p->ip4h->ip_csum));
+    printf("p->tcph->th_dport is :%d\n", p->tcph->th_dport);
+    printf("p->tcph->th_sum is :%d\n", ntohs(p->tcph->th_sum));
 
     return 0;
 }
@@ -252,8 +263,12 @@ void main(int argc, char **argv)
     }
     /* TDD: Construct a Packet for send here, to be done. */
     construct_pkt_fun(&afctx, &p);
+    print_packet_info(&p);
+    printf("----^before----v-after---\n");
     ReCalculateChecksum(&p);
     afctx.pkt = &p;
+    print_packet_info(&p);
+
     printf("thread num is :%d\n", afctx.thread_num);
     for(i = 0; i < afctx.thread_num; i++){
         if(i % 2 == 0){

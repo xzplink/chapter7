@@ -272,16 +272,10 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
 {
     AFPacketInstance *instance  = (AFPacketInstance *) handle;
     int  fromlen                = 0;
-//    EtherHdr  *eh	   = NULL;
-//    IP4Hdr    *ip4h	   = NULL;
-//    TCPHdr  *tcph      = NULL;
-    uint8_t  *pkt      = p->pkt;
+    uint8_t  *pkt               = p->pkt;
 
-//    printf(">>>>>>>>>into afpacket_acquire.\n");
-//    printf("instance->fd is :%d, pkt is :%x\n", instance->fd, pkt);
-//    printf("instance->index is :%d.\n", instance->index);
+
     fromlen = recv(instance->fd, pkt, 2000, MSG_TRUNC);
-
     if (fromlen>0) {
         //mac
         p->ethh = (EtherHdr *) pkt;
@@ -302,7 +296,6 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
         }
     }
 
-//    printf("=========leave afpacket_acquire.\n");
     return fromlen;
 }
 
@@ -332,9 +325,9 @@ Packet *exchange_for_respond_pkt(Packet *p, uint8_t flag)
     printf("111111111111111111\n");
     /* Swap layer 2 info. */
     uint8_t ether_tmp[6];
-    memcpy(&ether_tmp, (p->ethh->ether_dst), 6*sizeof(uint8_t));
+    memcpy(ether_tmp, p->ethh->ether_dst, 6*sizeof(uint8_t));
     memcpy(p->ethh->ether_dst, p->ethh->ether_src, 6*sizeof(uint8_t));
-    memcpy(p->ethh->ether_src, &ether_tmp, 6*sizeof(uint8_t));
+    memcpy(p->ethh->ether_src, ether_tmp, 6*sizeof(uint8_t));
     printf("2222222222222222222\n");
     /* Swap layer 3 info. */
     struct in_addr ip_tmp;
@@ -386,17 +379,37 @@ int print_packet_info(Packet *p)
     ethh = (EtherHdr *)pkt;
     printf("|+|---------------------------|+|\n");
     printf("|-| mac type: %d\n", ethh->ether_type);
-    printf("|-| mac_dst: %s\n", ethh->ether_dst);
-    printf("|-| mac_src: %s\n", ethh->ether_src);
+    char mac_dst[32]= {0}, mac_src[32] = {0};
+    sprintf(mac_dst,"%02x:%02x:%02x:%02x:%02x:%02x",
+            ethh->ether_dst[0],
+            ethh->ether_dst[1],
+            ethh->ether_dst[2],
+            ethh->ether_dst[3],
+            ethh->ether_dst[4],
+            ethh->ether_dst[5]
+            );
+    sprintf(mac_src,"%02x:%02x:%02x:%02x:%02x:%02x",
+            ethh->ether_src[0],
+            ethh->ether_src[1],
+            ethh->ether_src[2],
+            ethh->ether_src[3],
+            ethh->ether_src[4],
+            ethh->ether_src[5]
+    );
+    printf("|-| mac_dst: %s\n", mac_dst);
+    printf("|-| mac_src: %s\n", mac_src);
 
     ip4h = (IP4Hdr *)(pkt + sizeof(EtherHdr));
     printf("|-| proto: %d\n", ip4h->ip_proto);
-    printf("|-| ip_src: %s\n", ip4h->s_ip_src);
-    printf("|-| ip_dst: %s\n", ip4h->s_ip_dst);
+    printf("|-| ip_src: %s\n", inet_ntoa(ip4h->s_ip_src));
+    printf("|-| ip_dst: %s\n", inet_ntoa(ip4h->s_ip_dst));
+//    printf("|-| ip_csum: %s\n", ntohs(ip4h->ip_csum));
 
     tcph = (TCPHdr *)(ip4h + IPV4_GET_HLEN(p));
-    printf("|-| sport: %d\n", tcph->th_sport);
-    printf("|-| dport: %d\n", tcph->th_dport);
+    printf("|-| sport: %d\n", ntohs(tcph->th_sport));
+    printf("|-| dport: %d\n", ntohs(tcph->th_dport));
+    printf("|-| th_offx2: %d\n", tcph->th_offx2);
+//    printf("|-| th_sum: %d\n", ntohs(tcph->th_sum));
     printf("|+|---------------------------|+|\n");
 
     return 0;
