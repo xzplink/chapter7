@@ -276,24 +276,48 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
 
 
     fromlen = recv(instance->fd, pkt, 2000, MSG_TRUNC);
-    if (fromlen>0) {
-        //mac
+    if (fromlen > 0) {
+        // Decode ethernet
         p->ethh = (EtherHdr *) pkt;
-        if (p->ethh && (ntohs(p->ethh->ether_type) != IP_TYPE)) {
+        if (p->ethh && (ntohs(p->ethh->ether_type) != ETHERNET_TYPE_IP)) {
             return 0;
         }
 
-        //IP
-        p->ip4h = (IP4Hdr *)(pkt+sizeof(EtherHdr));
-        if (p->ip4h && (p->ip4h->ip_proto != TCP_TYPE)) {
+        // Decode IPv4
+        if (IP_GET_RAW_VER(pkt + ETHERNET_HEADER_LEN) != 4){
             return 0;
         }
-
-        //TCP
+        p->ip4h = (IP4Hdr *)(pkt + ETHERNET_HEADER_LEN);
+        if (p->ip4h) {
+            printf("11111111111\n");
+            if (IPV4_GET_HLEN(p) < IPV4_HEADER_LEN){
+                return 0;
+            }
+            printf("222222222\n");
+            if (IPV4_GET_IPLEN(p) < IPV4_GET_HLEN(p)){
+                return 0;
+            }
+            printf("3333333333\n");
+            printf("fromlen is :%d\n", fromlen);
+            if( fromlen < IPV4_GET_IPLEN(p)){
+                return 0;
+            }
+        }
+        uint8_t len = IPV4_GET_IPLEN(p) - IPV4_GET_HLEN(p);
+        if(len < TCP_HEADER_LEN){
+            return 0;
+        }
+        // Decode TCP
         p->tcph = (TCPHdr *)(p->ip4h + IPV4_GET_HLEN(p));
+        if(len < TCP_GET_HLEN(p)){
+            return 0;
+        }
+        print_packet_info(p);
         if (p->tcph && (ntohs(p->tcph->th_dport) != HTTP_PORT)) {
             return 0;
         }
+
+//        print_packet_info(p);
     }
 
     return fromlen;
@@ -322,19 +346,18 @@ int afpacket_close(void *handle)
 
 Packet *exchange_for_respond_pkt(Packet *p, uint8_t flag)
 {
-    printf("111111111111111111\n");
     /* Swap layer 2 info. */
     uint8_t ether_tmp[6];
     memcpy(ether_tmp, p->ethh->ether_dst, 6*sizeof(uint8_t));
     memcpy(p->ethh->ether_dst, p->ethh->ether_src, 6*sizeof(uint8_t));
     memcpy(p->ethh->ether_src, ether_tmp, 6*sizeof(uint8_t));
-    printf("2222222222222222222\n");
+
     /* Swap layer 3 info. */
     struct in_addr ip_tmp;
     memcpy(&ip_tmp, &p->ip4h->s_ip_src, sizeof(struct in_addr));
     memcpy(&p->ip4h->s_ip_src, &p->ip4h->s_ip_dst, sizeof(struct in_addr));
     memcpy(&p->ip4h->s_ip_dst, &ip_tmp, sizeof(struct in_addr));
-    printf("333333333333333333\n");
+
     /* Swap layer 4 info. */
     uint16_t port_tmp;
     port_tmp = p->tcph->th_sport;
@@ -343,7 +366,6 @@ Packet *exchange_for_respond_pkt(Packet *p, uint8_t flag)
     if(flag){
         p->tcph->th_flags |= flag;
     }
-    printf("444444444444444444\n");
 
     return p;
 }
@@ -403,13 +425,25 @@ int print_packet_info(Packet *p)
     printf("|-| proto: %d\n", ip4h->ip_proto);
     printf("|-| ip_src: %s\n", inet_ntoa(ip4h->s_ip_src));
     printf("|-| ip_dst: %s\n", inet_ntoa(ip4h->s_ip_dst));
-//    printf("|-| ip_csum: %s\n", ntohs(ip4h->ip_csum));
+    printf("|-| ip_csum: %d\n", ntohs(ip4h->ip_csum));
 
     tcph = (TCPHdr *)(ip4h + IPV4_GET_HLEN(p));
     printf("|-| sport: %d\n", ntohs(tcph->th_sport));
     printf("|-| dport: %d\n", ntohs(tcph->th_dport));
+    printf("|-| seq: %u\n", ntohl(tcph->th_seq));
+    printf("|-| ack: %u\n", ntohl(tcph->th_ack));
     printf("|-| th_offx2: %d\n", tcph->th_offx2);
-//    printf("|-| th_sum: %d\n", ntohs(tcph->th_sum));
+    printf("|-| th_sum: %d\n", ntohs(tcph->th_sum));
+    if(tcph->th_flags == TH_SYN){
+        printf("|-| flags: SYN\n");
+    } else if(tcph->th_flags == (TH_SYN|TH_ACK)){
+        printf("|-| flags: (SYN|ACK)\n");
+    } else if(tcph->th_flags == TH_ACK){
+        printf("|-| flags: ACK\n");
+    } else if(tcph->th_flags == TH_RST){
+        printf("|-| flags: RST\n");
+    }
+
     printf("|+|---------------------------|+|\n");
 
     return 0;

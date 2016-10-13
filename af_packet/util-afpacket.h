@@ -20,15 +20,22 @@
 extern "C" {
 #endif
 
-#define STATE_STOPPED         0
-#define STATE_STARTED         1
-#define VLAN_TAG_LEN          4
+#define STATE_STOPPED            0
+#define STATE_STARTED            1
+#define VLAN_TAG_LEN             4
 
-#define IP_TYPE             (0x0800)
-#define TCP_TYPE            (0x06)
-#define AF_ERROR             -1
-#define AF_SUCCESS           0
-#define HTTP_PORT            22
+#define ETHERNET_TYPE_IP         0x0800
+#define ETHERNET_TYPE_ARP        0x0806
+#define ETHERNET_TYPE_IPV6       0x86dd
+#define ETHERNET_TYPE_VLAN       0x8100
+#define ETHERNET_HEADER_LEN       14
+
+#define IP_TYPE                 (0x0800)
+#define TCP_TYPE                 (0x06)
+#define HTTP_PORT                 22
+#define AF_ERROR                  -1
+#define AF_SUCCESS                0
+
 
 typedef struct _AFPacketInstance
 {

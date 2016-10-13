@@ -91,7 +91,7 @@ void *pkt_send(void *data)
     }
 
     printf("[*] into pkt_send thread.\n");
-    for(i = 0; i < PKT_SEND_COUNT; i++) {
+    for(i = 1; i <= PKT_SEND_COUNT; i++) {
         (uint32_t)p->ip4h->s_ip_src.s_addr++;  //ip_src change for test
 
         send_success = afpacket_send(instance, p);
@@ -99,6 +99,7 @@ void *pkt_send(void *data)
             printf("afpcket_send fail!\n");
         } else{
             printf("[*] we have send :%d pkts.\n", i);
+            print_packet_info(p);
         }
     }
     error:
@@ -109,7 +110,7 @@ void *pkt_receive(void *data)
 {
     AFPacketInstance    *instance;
     Packet    p, *new_pkt;
-    p.pkt   = calloc(20000,1);
+    p.pkt   = calloc(2000,1);
     uint64_t   pkt_len;
     AFCtx  *afctx  = (AFCtx*)data;
     int  i, j, send_success = -1;;
@@ -125,20 +126,24 @@ void *pkt_receive(void *data)
 
     printf("[*] into pkt_receive thread.\n");
     for(i = 0, j = 0; i < PKT_RECEIVE_COUNT; i++) {
-        pkt_len = afpacket_acquire(instance, &p, 20000);
+        pkt_len = afpacket_acquire(instance, &p, 2000);
         if (pkt_len>0) {
             printf("[*] we have receive :%d pkts.\n", i);
             /* Just deal with (SYN|ACK) pkt from server */
-            if(p.tcph->th_flags & (TH_SYN|TH_ACK)) {
-                new_pkt = exchange_for_respond_pkt(&p, TH_ACK);
-                ReCalculateChecksum(new_pkt);
-                send_success = afpacket_send(instance, new_pkt);
-                if (send_success <= 0) {
-                    printf("afpcket_send fail!\n");
-                } else{
-                    printf("[*] we have send :%d pkts.\n", ++j);
-                }
-            }
+//            if(p.tcph->th_flags & (TH_SYN|TH_ACK)) {
+//                new_pkt = exchange_for_respond_pkt(&p, TH_ACK);
+//                /* update Seq & Ack. */
+//                new_pkt->tcph->th_ack = new_pkt->tcph->th_seq + 1;
+//                new_pkt->tcph->th_seq = htonl(1);
+//
+//                ReCalculateChecksum(new_pkt);
+//                send_success = afpacket_send(instance, new_pkt);
+//                if (send_success <= 0) {
+//                    printf("afpcket_send fail!\n");
+//                } else{
+//                    printf("[*] we have send :%d pkts.\n", ++j);
+//                }
+//            }
         }
     }
     error:
@@ -196,24 +201,24 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
     /* Layer 3: IP header */
     ip4h.ip_verhl  = 69;
     ip4h.ip_tos    = 00;
-    ip4h.ip_len    = htons(526);
-    ip4h.ip_id     = htons(8616);
+    ip4h.ip_len    = htons(52);
+    ip4h.ip_id     = htons(3620);
     ip4h.ip_off    = htons(16384);
     ip4h.ip_ttl    = 64;
     ip4h.ip_proto  = 6;
-    ip4h.ip_csum   = htons(29029);
+    ip4h.ip_csum   = htons(0x00);
     ip4h.s_ip_src.s_addr = inet_addr("1.1.1.1");
     ip4h.s_ip_dst.s_addr = inet_addr("10.60.20.10");
 
     /* Layer 4: TCP header */
     tcph.th_sport  = htons(59609);
     tcph.th_dport  = htons(22);
-    tcph.th_seq    = htonl(1);
+    tcph.th_seq    = 0;
     tcph.th_ack    = 0;
-    tcph.th_offx2  = 80;
+    tcph.th_offx2  = 0;
     tcph.th_flags  = TH_SYN;
-    tcph.th_win    = htons(260);
-    tcph.th_sum    = htons(52317);
+    tcph.th_win    = htons(8192);
+    tcph.th_sum    = htons(0xec84);
     tcph.th_urp    = 0;
 
     /* Fill the construct content into packet */
@@ -227,11 +232,8 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
 
     p->tcph = (TCPHdr *)(p->ip4h + IPV4_GET_HLEN(p));
     memcpy(p->tcph, &tcph, sizeof(TCPHdr));
-    p->pkt_len = len + sizeof(TCPHdr);
+    p->pkt_len = len + sizeof(TCPHdr) + 10; /* fill 10 bytes 0 */
     printf("pkt len is :%d\n", p->pkt_len);
-    printf("p->ip4h->ip_csum is :%d\n", ntohs(p->ip4h->ip_csum));
-    printf("p->tcph->th_dport is :%d\n", p->tcph->th_dport);
-    printf("p->tcph->th_sum is :%d\n", ntohs(p->tcph->th_sum));
 
     return 0;
 }
@@ -251,7 +253,7 @@ void main(int argc, char **argv)
     }
     memset(&afctx, 0, sizeof(AFCtx));
     memset(&p, 0 , sizeof(Packet));
-    p.pkt  = calloc(20000,1);
+    p.pkt  = calloc(2000,1);
 
     parse_cmd_line(argc, argv, &afctx);
 
@@ -264,10 +266,11 @@ void main(int argc, char **argv)
     /* TDD: Construct a Packet for send here, to be done. */
     construct_pkt_fun(&afctx, &p);
     print_packet_info(&p);
-    printf("----^before----v-after---\n");
+//    printf("----^before----v-after---\n");
     ReCalculateChecksum(&p);
     afctx.pkt = &p;
-    print_packet_info(&p);
+//    Packet *new_pkt = exchange_for_respond_pkt(&p, (TH_SYN|TH_ACK));
+//    print_packet_info(new_pkt);
 
     printf("thread num is :%d\n", afctx.thread_num);
     for(i = 0; i < afctx.thread_num; i++){
@@ -282,7 +285,7 @@ void main(int argc, char **argv)
                 return;
             }
         }
-        cpu_index   = (i+cpu_start)%(sysconf(_SC_NPROCESSORS_CONF));
+        cpu_index   = (i + cpu_start)%(sysconf(_SC_NPROCESSORS_CONF));
         printf("tid[%d] is :%u\n", i, tid[i]);
         if (thread_set_cpu(tid[i], cpu_index, sysconf(_SC_NPROCESSORS_CONF)) == 0) {
             printf("create thread[%d] set cpu failed!\n", i);

@@ -32,7 +32,11 @@ extern "C" {
 /** Echo Congestion flag */
 #define TH_CWR                               0x80
 
-
+#define IPV4_HEADER_LEN                       20
+#define TCP_HEADER_LEN                        20
+#define IP_GET_RAW_VER(pkt)                  ((((pkt)[0] & 0xf0) >> 4))
+#define IPV4_GET_RAW_IPLEN(ip4h)             ((ip4h)->ip_len)
+#define IPV4_GET_IPLEN(p)                    (ntohs(IPV4_GET_RAW_IPLEN((p)->ip4h)))
 #define IPV4_GET_RAW_HLEN(ip4h)              ((ip4h)->ip_verhl & 0x0f)
 #define IPV4_GET_HLEN(p)                     (IPV4_GET_RAW_HLEN((p)->ip4h) << 2)
 #define TCP_GET_RAW_OFFSET(tcph)             (((tcph)->th_offx2 & 0xf0) >> 4)
