@@ -32,9 +32,10 @@ extern "C" {
 
 #define IP_TYPE                 (0x0800)
 #define TCP_TYPE                 (0x06)
-#define HTTP_PORT                 22
+#define HTTP_PORT                 80
 #define AF_ERROR                  -1
 #define AF_SUCCESS                0
+#define PKT_ERROR                 -1
 
 
 typedef struct _AFPacketInstance

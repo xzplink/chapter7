@@ -98,7 +98,7 @@ static int bind_interface( AFPacketInstance *instance)
 
     if (bind(instance->fd, (struct sockaddr *) &(instance->sll), sizeof(instance->sll)) != 0) {
         printf("%s: bind error: %s\n", __FUNCTION__, strerror(errno));
-        ret = -1;
+        ret = AF_ERROR;
     }
 
     //check any pending errors
@@ -148,11 +148,10 @@ uint8_t afpacket_init(const char *dev_name, void **ctxt_ptr)
 {
     AFPacketInstance    *instance;
     int ret  = 0;
-//    printf("[*] enter into afpacket_init.\n");
+
     instance        = create_instance(dev_name);
     *ctxt_ptr       = instance;
     if(instance == NULL) {
-//        printf("[*] instance is NULL.\n");
         ret = -1;
     }
 
@@ -239,7 +238,7 @@ int afpacket_start_v2(void *handle)
     }
 
     //set promiscuous
-    if (set_nic_promisc(instance) != AF_SUCCESS)
+    if (set_nic_promisc_v2(instance) != AF_SUCCESS)
     {
         return AF_ERROR;
     }
@@ -280,41 +279,66 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
         // Decode ethernet
         p->ethh = (EtherHdr *) pkt;
         if (p->ethh && (ntohs(p->ethh->ether_type) != ETHERNET_TYPE_IP)) {
-            return 0;
+            return PKT_ERROR;
         }
 
         // Decode IPv4
-        if (IP_GET_RAW_VER(pkt + ETHERNET_HEADER_LEN) != 4){
-            return 0;
+        pkt = pkt + ETHERNET_HEADER_LEN;
+        if (IP_GET_RAW_VER(pkt) != 4){
+            return PKT_ERROR;
         }
-        p->ip4h = (IP4Hdr *)(pkt + ETHERNET_HEADER_LEN);
+        p->ip4h = (IP4Hdr *)pkt;
         if (p->ip4h) {
-            printf("11111111111\n");
             if (IPV4_GET_HLEN(p) < IPV4_HEADER_LEN){
-                return 0;
+                return PKT_ERROR;
             }
-            printf("222222222\n");
             if (IPV4_GET_IPLEN(p) < IPV4_GET_HLEN(p)){
-                return 0;
+                return PKT_ERROR;
             }
-            printf("3333333333\n");
-            printf("fromlen is :%d\n", fromlen);
+//            printf("fromlen is :%d\n", fromlen);
             if( fromlen < IPV4_GET_IPLEN(p)){
-                return 0;
+                return PKT_ERROR;
             }
         }
         uint8_t len = IPV4_GET_IPLEN(p) - IPV4_GET_HLEN(p);
         if(len < TCP_HEADER_LEN){
-            return 0;
+            return PKT_ERROR;
+        }
+        /* validate the ip checksum of the received packet */
+        uint16_t ip_csum = IPV4CalculateChecksum((uint16_t *)p->ip4h,
+                                                 IPV4_GET_RAW_HLEN(p->ip4h));
+        if(p->ip4h->ip_csum != ip_csum){
+//            printf("pkt ip csum error!\n");
+            return PKT_ERROR;
         }
         // Decode TCP
-        p->tcph = (TCPHdr *)(p->ip4h + IPV4_GET_HLEN(p));
-        if(len < TCP_GET_HLEN(p)){
-            return 0;
+        pkt = pkt + IPV4_GET_HLEN(p);
+        p->tcph = (TCPHdr *)pkt;
+
+        uint8_t hlen = TCP_GET_HLEN(p);
+        if(len < hlen){
+            return PKT_ERROR;
         }
-        print_packet_info(p);
-        if (p->tcph && (ntohs(p->tcph->th_dport) != HTTP_PORT)) {
-            return 0;
+//        print_packet_info(p);
+        /* Self define filter rules, eg. only receice SSH pkt */
+        if ((ntohs(p->tcph->th_dport) != HTTP_PORT) &&
+                (ntohs(p->tcph->th_sport) != HTTP_PORT)) {
+                return PKT_ERROR;
+        }
+
+        p->payload     = pkt + hlen;
+        p->payload_len = len - hlen;
+        /* validate the tcp checksum of the received packet */
+        uint16_t tcp_csum = TCPCalculateChecksum(p->ip4h->s_ip_addrs,
+                                             (uint16_t *)p->tcph, (p->payload_len + TCP_GET_HLEN(p)));
+        if(p->tcph->th_sum != tcp_csum){
+//            printf("pkt tcp csum error!\n");
+            return PKT_ERROR;
+        }
+        if(p->tcph->th_flags & (TH_SYN|TH_ACK)){
+            return fromlen;
+        } else if(p->tcph->th_flags & TH_SYN){
+            print_packet_info(p);
         }
 
 //        print_packet_info(p);
@@ -427,21 +451,23 @@ int print_packet_info(Packet *p)
     printf("|-| ip_dst: %s\n", inet_ntoa(ip4h->s_ip_dst));
     printf("|-| ip_csum: %d\n", ntohs(ip4h->ip_csum));
 
-    tcph = (TCPHdr *)(ip4h + IPV4_GET_HLEN(p));
-    printf("|-| sport: %d\n", ntohs(tcph->th_sport));
-    printf("|-| dport: %d\n", ntohs(tcph->th_dport));
+    tcph = (TCPHdr *)((uint8_t *)ip4h + IPV4_GET_HLEN(p));
+    printf("|-| sport: %u\n", ntohs(tcph->th_sport));
+    printf("|-| dport: %u\n", ntohs(tcph->th_dport));
     printf("|-| seq: %u\n", ntohl(tcph->th_seq));
     printf("|-| ack: %u\n", ntohl(tcph->th_ack));
     printf("|-| th_offx2: %d\n", tcph->th_offx2);
     printf("|-| th_sum: %d\n", ntohs(tcph->th_sum));
-    if(tcph->th_flags == TH_SYN){
-        printf("|-| flags: SYN\n");
-    } else if(tcph->th_flags == (TH_SYN|TH_ACK)){
-        printf("|-| flags: (SYN|ACK)\n");
-    } else if(tcph->th_flags == TH_ACK){
-        printf("|-| flags: ACK\n");
-    } else if(tcph->th_flags == TH_RST){
+    if(tcph->th_flags & TH_RST){
         printf("|-| flags: RST\n");
+    } else if(tcph->th_flags & TH_FIN){
+        printf("|-| flags: FIN\n");
+    } else if(tcph->th_flags & (TH_SYN|TH_ACK)){
+        printf("|-| flags: (SYN|ACK)\n");
+    } else if(tcph->th_flags & TH_SYN){
+        printf("|-| flags: TH_SYN\n");
+    } else if(tcph->th_flags & TH_ACK){
+        printf("|-| flags: ACK\n");
     }
 
     printf("|+|---------------------------|+|\n");

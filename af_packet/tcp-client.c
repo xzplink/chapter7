@@ -92,6 +92,7 @@ void *pkt_send(void *data)
 
     printf("[*] into pkt_send thread.\n");
     for(i = 1; i <= PKT_SEND_COUNT; i++) {
+        /* TDD: mutithread should lock it first */
         (uint32_t)p->ip4h->s_ip_src.s_addr++;  //ip_src change for test
 
         send_success = afpacket_send(instance, p);

@@ -12,7 +12,7 @@ int main(int argc, char* argv[])
     AFPacketInstance    *instance;
     Packet    p, *new_pkt;
     p.pkt   = calloc(2000,1);
-    uint64_t   pkt_len = 0;
+    int   pkt_len = 0;
     uint32_t   i = 0, send_success = -1;
 
     if (argc!=2) {
@@ -36,26 +36,25 @@ int main(int argc, char* argv[])
         if(pkt_len > 0){
             printf("[*] we have receive :%d pkts.\n", ++i);
             /* Just deal with ACK pkt from client, not (SYN|ACK) */
-//             if((p.tcph->th_flags & TH_ACK) && !(p.tcph->th_flags & TH_SYN)){
+             if(p.tcph->th_flags & (TH_SYN|TH_ACK)){
 //                 printf("^^^^^^^^^^^^^^^^^^^^^^\n");
 //                 print_packet_info(&p);
-//                 continue;
-//             } else if (p.tcph->th_flags & TH_SYN) {
-//                 printf("<<<<<<<<??????\n");
-//                 print_packet_info(&p);
-//                 new_pkt = exchange_for_respond_pkt(&p, (TH_SYN|TH_ACK));
-//                 /* update Seq & Ack. */
-//                 new_pkt->tcph->th_ack = new_pkt->tcph->th_seq + 1;
-//                 new_pkt->tcph->th_seq = 0;
-//
-//                 ReCalculateChecksum(new_pkt);
-//                 send_success = afpacket_send(instance, new_pkt);
-//                 if (send_success <= 0) {
-//                     printf("afpcket_send fail!\n");
-//                 } else{
-//                     printf("[*] we have send :%d (SYN|ACK) pkts.\n", ++i);
-//                 }
-//            }
+                 continue;
+             } else if (p.tcph->th_flags & TH_SYN) {
+                 print_packet_info(&p);
+                 new_pkt = exchange_for_respond_pkt(&p, (TH_SYN|TH_ACK));
+                 /* update Seq & Ack. */
+                 new_pkt->tcph->th_ack = new_pkt->tcph->th_seq + 1;
+                 new_pkt->tcph->th_seq = 0;
+
+                 ReCalculateChecksum(new_pkt);
+                 send_success = afpacket_send(instance, new_pkt);
+                 if (send_success <= 0) {
+                     printf("afpcket_send fail!\n");
+                 } else{
+                     printf("[*] we have send :%d (SYN|ACK) pkts.\n", ++i);
+                 }
+            }
         }
     }
 }
