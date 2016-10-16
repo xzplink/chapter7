@@ -17,33 +17,6 @@
 extern "C" {
 #endif
 
-#define PKT_IS_IPV4(p)      (((p)->ip4h != NULL))
-#define PKT_IS_TCP(p)       (((p)->tcph != NULL))
-#define PKT_IS_UDP(p)       (((p)->udph != NULL))
-
-#define TH_FIN                               0x01
-#define TH_SYN                               0x02
-#define TH_RST                               0x04
-#define TH_PUSH                              0x08
-#define TH_ACK                               0x10
-#define TH_URG                               0x20
-/** Establish a new connection reducing window */
-#define TH_ECN                               0x40
-/** Echo Congestion flag */
-#define TH_CWR                               0x80
-
-#define IPV4_HEADER_LEN                       20
-#define TCP_HEADER_LEN                        20
-#define IP_GET_RAW_VER(pkt)                  ((((pkt)[0] & 0xf0) >> 4))
-#define IPV4_GET_RAW_IPLEN(ip4h)             ((ip4h)->ip_len)
-#define IPV4_GET_IPLEN(p)                    (ntohs(IPV4_GET_RAW_IPLEN((p)->ip4h)))
-#define IPV4_GET_RAW_HLEN(ip4h)              ((ip4h)->ip_verhl & 0x0f)
-#define IPV4_GET_HLEN(p)                     (IPV4_GET_RAW_HLEN((p)->ip4h) << 2)
-#define TCP_GET_RAW_OFFSET(tcph)             (((tcph)->th_offx2 & 0xf0) >> 4)
-#define TCP_GET_OFFSET(p)                    TCP_GET_RAW_OFFSET((p)->tcph)
-#define TCP_GET_HLEN(p)                      (TCP_GET_OFFSET((p)) << 2)
-#define IPV4_GET_RAW_HLEN(ip4h)              ((ip4h)->ip_verhl & 0x0f)
-
 #define NOFILE                                1024
 
 int daemon_init(void);

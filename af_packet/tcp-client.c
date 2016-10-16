@@ -97,10 +97,10 @@ void *pkt_send(void *data)
 
         send_success = afpacket_send(instance, p);
         if (send_success <= 0) {
-            printf("afpcket_send fail!\n");
+//            printf("afpcket_send fail!\n");
         } else{
-            printf("[*] we have send :%d pkts.\n", i);
-            print_packet_info(p);
+//            printf("[*] we have send :%d pkts.\n", i);
+//            print_packet_info(p);
         }
     }
     error:
@@ -112,7 +112,7 @@ void *pkt_receive(void *data)
     AFPacketInstance    *instance;
     Packet    p, *new_pkt;
     p.pkt   = calloc(2000,1);
-    uint64_t   pkt_len;
+    int    pkt_len = 0;
     AFCtx  *afctx  = (AFCtx*)data;
     int  i, j, send_success = -1;;
 
@@ -126,25 +126,32 @@ void *pkt_receive(void *data)
     }
 
     printf("[*] into pkt_receive thread.\n");
-    for(i = 0, j = 0; i < PKT_RECEIVE_COUNT; i++) {
+    int k;
+    for(i = 0, j = 0, k = 0; k < PKT_RECEIVE_COUNT; i++) {
         pkt_len = afpacket_acquire(instance, &p, 2000);
-        if (pkt_len>0) {
+        if (pkt_len > 0) {
             printf("[*] we have receive :%d pkts.\n", i);
+//            print_packet_info(&p);
             /* Just deal with (SYN|ACK) pkt from server */
-//            if(p.tcph->th_flags & (TH_SYN|TH_ACK)) {
-//                new_pkt = exchange_for_respond_pkt(&p, TH_ACK);
-//                /* update Seq & Ack. */
-//                new_pkt->tcph->th_ack = new_pkt->tcph->th_seq + 1;
-//                new_pkt->tcph->th_seq = htonl(1);
-//
+            if((p.tcph->th_flags & (TH_SYN|TH_ACK)) == (TH_SYN|TH_ACK)) {
+                if(p.payload_len > 0){
+                    continue;
+                }
+                printf("[*] we have receive :%d pkts.\n", ++k);
+//                print_packet_info(&p);
+                new_pkt = exchange_for_respond_pkt(&p, TH_ACK);
+                /* update Seq & Ack. */
+                new_pkt->tcph->th_ack = htonl(ntohl(new_pkt->tcph->th_seq) + 1);
+                new_pkt->tcph->th_seq = htonl(1);
+//                print_packet_info(&p);
 //                ReCalculateChecksum(new_pkt);
-//                send_success = afpacket_send(instance, new_pkt);
-//                if (send_success <= 0) {
-//                    printf("afpcket_send fail!\n");
-//                } else{
-//                    printf("[*] we have send :%d pkts.\n", ++j);
-//                }
-//            }
+                send_success = afpacket_send(instance, new_pkt);
+                if (send_success <= 0) {
+                    printf("afpcket_send fail!\n");
+                } else{
+                    printf("[*] we have send :%d pkts.\n", ++j);
+                }
+            }
         }
     }
     error:
@@ -159,7 +166,7 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
     uint32_t        len = 0;
     char            *p_str = NULL;
     char            *p_pos = NULL;
-    int i;
+    int             i;
 
     memset(&eh, 0, sizeof(EtherHdr));
     memset(&ip4h, 0, sizeof(IP4Hdr));
@@ -202,21 +209,21 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
     /* Layer 3: IP header */
     ip4h.ip_verhl  = 69;
     ip4h.ip_tos    = 00;
-    ip4h.ip_len    = htons(52);
+    ip4h.ip_len    = htons(40);
     ip4h.ip_id     = htons(3620);
     ip4h.ip_off    = htons(16384);
     ip4h.ip_ttl    = 64;
     ip4h.ip_proto  = 6;
     ip4h.ip_csum   = htons(0x00);
-    ip4h.s_ip_src.s_addr = inet_addr("1.1.1.1");
+    ip4h.s_ip_src.s_addr = inet_addr("0.1.1.1");
     ip4h.s_ip_dst.s_addr = inet_addr("10.60.20.10");
 
     /* Layer 4: TCP header */
     tcph.th_sport  = htons(59609);
-    tcph.th_dport  = htons(22);
+    tcph.th_dport  = htons(80);
     tcph.th_seq    = 0;
     tcph.th_ack    = 0;
-    tcph.th_offx2  = 0;
+    tcph.th_offx2  = 0x50;
     tcph.th_flags  = TH_SYN;
     tcph.th_win    = htons(8192);
     tcph.th_sum    = htons(0xec84);
@@ -231,9 +238,12 @@ int construct_pkt_fun(AFCtx *afctx, Packet *p)
     memcpy(p->ip4h, &ip4h, sizeof(IP4Hdr));
     len += sizeof(IP4Hdr);
 
-    p->tcph = (TCPHdr *)(p->ip4h + IPV4_GET_HLEN(p));
+    p->tcph = (TCPHdr *)((uint8_t *)p->ip4h + IPV4_GET_HLEN(p));
     memcpy(p->tcph, &tcph, sizeof(TCPHdr));
-    p->pkt_len = len + sizeof(TCPHdr) + 10; /* fill 10 bytes 0 */
+
+    p->payload = (uint8_t *)p->tcph + TCP_GET_HLEN(p);
+    p->payload_len = 0;
+    p->pkt_len = len + sizeof(TCPHdr);
     printf("pkt len is :%d\n", p->pkt_len);
 
     return 0;
@@ -266,7 +276,7 @@ void main(int argc, char **argv)
     }
     /* TDD: Construct a Packet for send here, to be done. */
     construct_pkt_fun(&afctx, &p);
-    print_packet_info(&p);
+//    print_packet_info(&p);
 //    printf("----^before----v-after---\n");
     ReCalculateChecksum(&p);
     afctx.pkt = &p;

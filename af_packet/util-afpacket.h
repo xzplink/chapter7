@@ -24,12 +24,6 @@ extern "C" {
 #define STATE_STARTED            1
 #define VLAN_TAG_LEN             4
 
-#define ETHERNET_TYPE_IP         0x0800
-#define ETHERNET_TYPE_ARP        0x0806
-#define ETHERNET_TYPE_IPV6       0x86dd
-#define ETHERNET_TYPE_VLAN       0x8100
-#define ETHERNET_HEADER_LEN       14
-
 #define IP_TYPE                 (0x0800)
 #define TCP_TYPE                 (0x06)
 #define HTTP_PORT                 80
@@ -79,6 +73,7 @@ int afpacket_close(void *handle);
 Packet *exchange_for_respond_pkt(Packet *p, uint8_t flag);
 int ReCalculateChecksum(Packet *p);
 int print_packet_info(Packet *p);
+int filter_ip_address(struct in_addr addr1, char *addr2);
 
 #ifdef __cplusplus
 }

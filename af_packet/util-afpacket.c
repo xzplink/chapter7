@@ -295,7 +295,7 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
             if (IPV4_GET_IPLEN(p) < IPV4_GET_HLEN(p)){
                 return PKT_ERROR;
             }
-//            printf("fromlen is :%d\n", fromlen);
+
             if( fromlen < IPV4_GET_IPLEN(p)){
                 return PKT_ERROR;
             }
@@ -308,7 +308,11 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
         uint16_t ip_csum = IPV4CalculateChecksum((uint16_t *)p->ip4h,
                                                  IPV4_GET_RAW_HLEN(p->ip4h));
         if(p->ip4h->ip_csum != ip_csum){
-//            printf("pkt ip csum error!\n");
+            printf("pkt ip csum error!\n");
+            return PKT_ERROR;
+        }
+        /* pass always all the UDP pkts */
+        if(p->ip4h->ip_proto != IPPROTO_TCP){
             return PKT_ERROR;
         }
         // Decode TCP
@@ -319,31 +323,39 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
         if(len < hlen){
             return PKT_ERROR;
         }
-//        print_packet_info(p);
+
         /* Self define filter rules, eg. only receice SSH pkt */
         if ((ntohs(p->tcph->th_dport) != HTTP_PORT) &&
                 (ntohs(p->tcph->th_sport) != HTTP_PORT)) {
                 return PKT_ERROR;
         }
+        printf("p->tcph->th_dport: %u\n",ntohs(p->tcph->th_dport));
+        printf("p->tcph->th_sport: %u\n",ntohs(p->tcph->th_sport));
+        static uint32_t k;
+        printf("loop %d times.\n", ++k);
+//        if(filter_ip_address(p->ip4h->s_ip_src,"239.255.255.250") == 0){
+//            printf("filter_ip_address 239.255.255.250 successfull.\n");
+//            return PKT_ERROR;
+//        }
+//        if(filter_ip_address(p->ip4h->s_ip_dst,"239.255.255.250") == 0){
+//            printf("filter_ip_address 239.255.255.250 successfull.\n");
+//            return PKT_ERROR;
+//        }
 
         p->payload     = pkt + hlen;
         p->payload_len = len - hlen;
         /* validate the tcp checksum of the received packet */
         uint16_t tcp_csum = TCPCalculateChecksum(p->ip4h->s_ip_addrs,
                                              (uint16_t *)p->tcph, (p->payload_len + TCP_GET_HLEN(p)));
+        printf("payload_len is :%d\n", p->payload_len);
         if(p->tcph->th_sum != tcp_csum){
-//            printf("pkt tcp csum error!\n");
+            printf("pkt tcp csum error!\n");
             return PKT_ERROR;
-        }
-        if(p->tcph->th_flags & (TH_SYN|TH_ACK)){
-            return fromlen;
-        } else if(p->tcph->th_flags & TH_SYN){
-            print_packet_info(p);
         }
 
 //        print_packet_info(p);
     }
-
+    printf("fromlen is :%d\n", fromlen);
     return fromlen;
 }
 
@@ -370,24 +382,27 @@ int afpacket_close(void *handle)
 
 Packet *exchange_for_respond_pkt(Packet *p, uint8_t flag)
 {
-    /* Swap layer 2 info. */
+    /* Swap layer 2 Mac info. */
     uint8_t ether_tmp[6];
     memcpy(ether_tmp, p->ethh->ether_dst, 6*sizeof(uint8_t));
     memcpy(p->ethh->ether_dst, p->ethh->ether_src, 6*sizeof(uint8_t));
     memcpy(p->ethh->ether_src, ether_tmp, 6*sizeof(uint8_t));
 
-    /* Swap layer 3 info. */
+    /* Swap layer 3 ip info. */
     struct in_addr ip_tmp;
     memcpy(&ip_tmp, &p->ip4h->s_ip_src, sizeof(struct in_addr));
     memcpy(&p->ip4h->s_ip_src, &p->ip4h->s_ip_dst, sizeof(struct in_addr));
     memcpy(&p->ip4h->s_ip_dst, &ip_tmp, sizeof(struct in_addr));
 
-    /* Swap layer 4 info. */
+    /* Swap layer 4 port info. */
     uint16_t port_tmp;
     port_tmp = p->tcph->th_sport;
     p->tcph->th_sport = p->tcph->th_dport;
     p->tcph->th_dport = port_tmp;
+
+    /* Rset ACK/SYN/FIN flags */
     if(flag){
+        p->tcph->th_flags = 0;
         p->tcph->th_flags |= flag;
     }
 
@@ -446,7 +461,11 @@ int print_packet_info(Packet *p)
     printf("|-| mac_src: %s\n", mac_src);
 
     ip4h = (IP4Hdr *)(pkt + sizeof(EtherHdr));
-    printf("|-| proto: %d\n", ip4h->ip_proto);
+    if(ip4h->ip_proto == IPPROTO_TCP){
+        printf("|-| proto: TCP\n");
+    } else if(ip4h->ip_proto == IPPROTO_UDP){
+        printf("|-| proto: UDP\n");
+    }
     printf("|-| ip_src: %s\n", inet_ntoa(ip4h->s_ip_src));
     printf("|-| ip_dst: %s\n", inet_ntoa(ip4h->s_ip_dst));
     printf("|-| ip_csum: %d\n", ntohs(ip4h->ip_csum));
@@ -462,10 +481,10 @@ int print_packet_info(Packet *p)
         printf("|-| flags: RST\n");
     } else if(tcph->th_flags & TH_FIN){
         printf("|-| flags: FIN\n");
-    } else if(tcph->th_flags & (TH_SYN|TH_ACK)){
+    } else if((tcph->th_flags & (TH_SYN|TH_ACK)) == (TH_SYN|TH_ACK)){
         printf("|-| flags: (SYN|ACK)\n");
     } else if(tcph->th_flags & TH_SYN){
-        printf("|-| flags: TH_SYN\n");
+        printf("|-| flags: SYN\n");
     } else if(tcph->th_flags & TH_ACK){
         printf("|-| flags: ACK\n");
     }
@@ -473,6 +492,19 @@ int print_packet_info(Packet *p)
     printf("|+|---------------------------|+|\n");
 
     return 0;
+}
+
+int filter_ip_address(struct in_addr addr1, char *addr2)
+{
+//    in_addr_t ip = inet_addr(addr2);
+    printf("==========================\n");
+//    printf("ip addr is :%s\n", inet_ntoa(addr1));
+
+//    if(!memcmp(&addr1, &ip, sizeof(in_addr_t))){
+//        return 0;
+//    }
+
+    return -1;
 }
 
 #ifdef __cplusplus
