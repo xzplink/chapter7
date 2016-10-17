@@ -8,8 +8,8 @@
 #include "util-afpacket.h"
 #include "util-tools.h"
 
-#define PKT_SEND_COUNT     5
-#define PKT_RECEIVE_COUNT  5
+#define PKT_SEND_COUNT     50
+#define PKT_RECEIVE_COUNT  50
 
 
 void usage(char *prg, int exit_code)
@@ -130,7 +130,7 @@ void *pkt_receive(void *data)
     for(i = 0, j = 0, k = 0; k < PKT_RECEIVE_COUNT; i++) {
         pkt_len = afpacket_acquire(instance, &p, 2000);
         if (pkt_len > 0) {
-            printf("[*] we have receive :%d pkts.\n", i);
+//            printf("[*] we have receive :%d pkts.\n", i);
 //            print_packet_info(&p);
             /* Just deal with (SYN|ACK) pkt from server */
             if((p.tcph->th_flags & (TH_SYN|TH_ACK)) == (TH_SYN|TH_ACK)) {
@@ -138,13 +138,13 @@ void *pkt_receive(void *data)
                     continue;
                 }
                 printf("[*] we have receive :%d pkts.\n", ++k);
-//                print_packet_info(&p);
+                print_packet_info(&p);
                 new_pkt = exchange_for_respond_pkt(&p, TH_ACK);
                 /* update Seq & Ack. */
                 new_pkt->tcph->th_ack = htonl(ntohl(new_pkt->tcph->th_seq) + 1);
                 new_pkt->tcph->th_seq = htonl(1);
 //                print_packet_info(&p);
-//                ReCalculateChecksum(new_pkt);
+                ReCalculateChecksum(new_pkt);
                 send_success = afpacket_send(instance, new_pkt);
                 if (send_success <= 0) {
                     printf("afpcket_send fail!\n");

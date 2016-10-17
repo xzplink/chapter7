@@ -30,6 +30,7 @@ extern "C" {
 #define AF_ERROR                  -1
 #define AF_SUCCESS                0
 #define PKT_ERROR                 -1
+#define PKT_PASS                  -1
 
 
 typedef struct _AFPacketInstance

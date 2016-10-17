@@ -327,27 +327,31 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
         /* Self define filter rules, eg. only receice SSH pkt */
         if ((ntohs(p->tcph->th_dport) != HTTP_PORT) &&
                 (ntohs(p->tcph->th_sport) != HTTP_PORT)) {
-                return PKT_ERROR;
+                return PKT_PASS;
         }
-        printf("p->tcph->th_dport: %u\n",ntohs(p->tcph->th_dport));
-        printf("p->tcph->th_sport: %u\n",ntohs(p->tcph->th_sport));
+
         static uint32_t k;
-        printf("loop %d times.\n", ++k);
-//        if(filter_ip_address(p->ip4h->s_ip_src,"239.255.255.250") == 0){
-//            printf("filter_ip_address 239.255.255.250 successfull.\n");
-//            return PKT_ERROR;
-//        }
-//        if(filter_ip_address(p->ip4h->s_ip_dst,"239.255.255.250") == 0){
-//            printf("filter_ip_address 239.255.255.250 successfull.\n");
-//            return PKT_ERROR;
-//        }
+//        printf("loop %d times.\n", ++k);
+        if(filter_ip_address(p->ip4h->s_ip_src,"239.255.255.250") == 0){
+            printf("filter_ip_address 239.255.255.250 successfull.\n");
+            return PKT_PASS;
+        }
+        if(filter_ip_address(p->ip4h->s_ip_dst,"239.255.255.250") == 0){
+            printf("filter_ip_address 239.255.255.250 successfull.\n");
+            return PKT_PASS;
+        }
 
         p->payload     = pkt + hlen;
         p->payload_len = len - hlen;
+        /* We are only interest with three-way hand shake ,and
+         * like this packet don't have payload */
+        if(p->payload_len > 0){
+            return PKT_PASS;
+        }
         /* validate the tcp checksum of the received packet */
         uint16_t tcp_csum = TCPCalculateChecksum(p->ip4h->s_ip_addrs,
                                              (uint16_t *)p->tcph, (p->payload_len + TCP_GET_HLEN(p)));
-        printf("payload_len is :%d\n", p->payload_len);
+//        printf("payload_len is :%d\n", p->payload_len);
         if(p->tcph->th_sum != tcp_csum){
             printf("pkt tcp csum error!\n");
             return PKT_ERROR;
@@ -355,7 +359,7 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
 
 //        print_packet_info(p);
     }
-    printf("fromlen is :%d\n", fromlen);
+//    printf("fromlen is :%d\n", fromlen);
     return fromlen;
 }
 
@@ -496,13 +500,15 @@ int print_packet_info(Packet *p)
 
 int filter_ip_address(struct in_addr addr1, char *addr2)
 {
-//    in_addr_t ip = inet_addr(addr2);
-    printf("==========================\n");
-//    printf("ip addr is :%s\n", inet_ntoa(addr1));
+    struct in_addr ip;
+    ip.s_addr = inet_addr(addr2);
+//    printf("==========================\n");
+//    printf("ip addr1 is :%s\n", inet_ntoa(addr1));
+//    printf("ip addr2 is :%s\n", inet_ntoa(ip));
 
-//    if(!memcmp(&addr1, &ip, sizeof(in_addr_t))){
-//        return 0;
-//    }
+    if(!memcmp(&addr1, &(ip.s_addr), sizeof(in_addr_t))){
+        return 0;
+    }
 
     return -1;
 }
