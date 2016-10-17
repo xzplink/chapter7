@@ -128,6 +128,7 @@ void *pkt_receive(void *data)
     printf("[*] into pkt_receive thread.\n");
     int k;
     for(i = 0, j = 0, k = 0; k < PKT_RECEIVE_COUNT; i++) {
+        memset(p.pkt, 0, 2000);
         pkt_len = afpacket_acquire(instance, &p, 2000);
         if (pkt_len > 0) {
 //            printf("[*] we have receive :%d pkts.\n", i);
