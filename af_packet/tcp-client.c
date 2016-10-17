@@ -133,26 +133,29 @@ void *pkt_receive(void *data)
         if (pkt_len > 0) {
 //            printf("[*] we have receive :%d pkts.\n", i);
 //            print_packet_info(&p);
-            /* Just deal with (SYN|ACK) pkt from server */
-            if((p.tcph->th_flags & (TH_SYN|TH_ACK)) == (TH_SYN|TH_ACK)) {
-                if(p.payload_len > 0){
-                    continue;
-                }
-                printf("[*] we have receive :%d pkts.\n", ++k);
-                print_packet_info(&p);
-                new_pkt = exchange_for_respond_pkt(&p, TH_ACK);
-                /* update Seq & Ack. */
-                new_pkt->tcph->th_ack = htonl(ntohl(new_pkt->tcph->th_seq) + 1);
-                new_pkt->tcph->th_seq = htonl(1);
-//                print_packet_info(&p);
-                ReCalculateChecksum(new_pkt);
-                send_success = afpacket_send(instance, new_pkt);
-                if (send_success <= 0) {
-                    printf("afpcket_send fail!\n");
-                } else{
-                    printf("[*] we have send :%d pkts.\n", ++j);
+            if(p.tcph != NULL){
+                /* Just deal with (SYN|ACK) pkt from server */
+                if((p.tcph->th_flags & (TH_SYN|TH_ACK)) == (TH_SYN|TH_ACK)) {
+                    if(p.payload_len > 0){
+                        continue;
+                    }
+                    printf("[*] we have receive :%d pkts.\n", ++k);
+                    print_packet_info(&p);
+                    new_pkt = exchange_for_respond_pkt(&p, TH_ACK);
+                    /* update Seq & Ack. */
+                    new_pkt->tcph->th_ack = htonl(ntohl(new_pkt->tcph->th_seq) + 1);
+                    new_pkt->tcph->th_seq = htonl(1);
+//                    print_packet_info(&p);
+                    ReCalculateChecksum(new_pkt);
+                    send_success = afpacket_send(instance, new_pkt);
+                    if (send_success <= 0) {
+                        printf("afpcket_send fail!\n");
+                    } else{
+                        printf("[*] we have send :%d pkts.\n", ++j);
+                    }
                 }
             }
+
         }
     }
     error:
