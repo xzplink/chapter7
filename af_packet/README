@@ -1,0 +1,10 @@
+# ----User Manual----
+# 1、Make
+cd af_packet
+mkdir obj
+make
+# 2、client end CMD
+./tcp-client -i eth0 -s "11:22:33:44:55:66" -d "10:20:30:40:50:60" -c 2
+
+# 3、server end CMD
+./tcp-server eth0

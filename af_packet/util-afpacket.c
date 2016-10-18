@@ -344,7 +344,7 @@ int afpacket_acquire(void *handle, Packet *p, uint32_t pkt_len)
         p->payload     = pkt + hlen;
         p->payload_len = len - hlen;
         /* We are only interest with three-way hand shake ,and
-         * like this packet don't have payload */
+         * like those packet don't have payload */
         if(p->payload_len > 0){
             return PKT_PASS;
         }
