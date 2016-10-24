@@ -25,6 +25,9 @@ def parse_raw_data():
     # try:
         line = 0
         for i in all_url_lines:
+            if len(i) == len("\n"): # ignore empyt lines
+                continue
+
             url_dic = {'accesstime':'','srcip':'','srcport':'','destip':'','destport':'','method':'','host':'',
                        'url':'','useragent':'','content':'','cookie':'','referrer':'','statuscode':'','contenttype':'',
                        'response':'','day':''}
