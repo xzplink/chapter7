@@ -6,11 +6,15 @@
 import os
 import sys
 import logging
+import Queue
+import threading
+import urllib2
 
 raw_url_file_name = "/root/data_instance.txt"
 all_url_lines = []
 all_url_list = []
-
+threads = 10
+url_queue = Queue.Queue()
 
 def parse_raw_data():
     global all_url_list
@@ -56,16 +60,29 @@ def parse_raw_data():
         logging.getLogger().error("parse_raw_data error %s,in line[%d]." % (str(e),num))
 
 #end def
+def put_url_dic_queue(list):
+    global url_queue
+    for i in list:
+        url_queue.put(i)
+    #end for
+#end def
 
-def my_http_request(url_dic):
-    if url_dic['method'] == "GET":
-        pass
-    elif url_dic['method'] == "POST":
-        pass
+def my_http_request():
+    while not url_queue.empty():
+        url_dic = url_queue.get()
+        if url_dic['method'] == "GET":
+            pass
+        elif url_dic['method'] == "POST":
+            pass
 
 #end def
 
 if __name__ == "__main__":
     parse_raw_data()
     print all_url_list[0]
+
+    for i in range(threads):
+        print "Spawning thread: %d" % i
+        t = threading.Thread(target=my_http_request)
+        t.start()
 #end if
