@@ -7,19 +7,19 @@ import os
 import sys
 import logging
 import Queue
-import threading
-import urllib2
+from threading import Thread
+import requests
 
 raw_url_file_name = "/root/data_instance.txt"
-all_url_lines = []
-all_url_list = []
 threads = 10
 url_queue = Queue.Queue()
 
-def parse_raw_data():
-    global all_url_list
+def parse_raw_data(file):
+    global url_queue
+    all_url_lines = []
+
     try:
-        fd = open(raw_url_file_name,"r")
+        fd = open(file,"r")
         all_url_lines = fd.readlines()
     except Exception,e:
         logging.getLogger().error("open file data_instance.txt error." + str(e))
@@ -52,7 +52,7 @@ def parse_raw_data():
                     url_dic['statuscode'] = split_str[12]
                     url_dic['contenttype']= split_str[13]
                     url_dic['response']   = split_str[14]
-                    all_url_list.append(url_dic)
+                    url_queue.put(url_dic)
                 num = num + 1
             #end if
         #end for
@@ -60,29 +60,53 @@ def parse_raw_data():
         logging.getLogger().error("parse_raw_data error %s,in line[%d]." % (str(e),num))
 
 #end def
-def put_url_dic_queue(list):
-    global url_queue
-    for i in list:
-        url_queue.put(i)
-    #end for
-#end def
+
 
 def my_http_request():
     while not url_queue.empty():
         url_dic = url_queue.get()
+        url = "http://" + url_dic['host'] + url_dic['url']
+        # print url
         if url_dic['method'] == "GET":
-            pass
+            if url_dic['cookie'].strip(' '):
+                headers = {'Host':'','Cookie':'','User-Agent':'','Referer':''}
+                headers['Host']       = url_dic['host']
+                headers['User-Agent'] = url_dic['useragent']
+                headers['Cookie']     = url_dic['cookie']
+                headers['Referer']    = url_dic['referrer']
+                # print headers
+                response = requests.get(url,headers=headers)
+            else:
+                response = requests.get(url)
+            # print response.text
         elif url_dic['method'] == "POST":
-            pass
+            payload = ''
+            if url_dic['content'].strip(' '):
+                payload = url_dic['content']
+                # print payload
+            response = requests.post(url,data=payload)
+            # print response.text
+    #end while
+    print "[*] this thread is end."
 
 #end def
 
 if __name__ == "__main__":
-    parse_raw_data()
-    print all_url_list[0]
+    parse_raw_data(raw_url_file_name)
 
-    for i in range(threads):
-        print "Spawning thread: %d" % i
-        t = threading.Thread(target=my_http_request)
-        t.start()
+    try:
+        list = []
+        for i in range(threads):
+            print "Spawning thread: %d" % i
+            list.append(Thread(target=my_http_request))
+        #end for
+        for t in list:
+            t.start()
+        #end for
+
+        for t in list:
+            t.join()
+        #end for
+    except Exception,e:
+        logging.getLogger().error("start thread error," + str(e))
 #end if
