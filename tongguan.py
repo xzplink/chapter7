@@ -10,7 +10,8 @@ import Queue
 from threading import Thread
 import requests
 
-raw_url_file_name = "/root/data_instance.txt"
+raw_url_file_name = "c:\data_instance.txt"
+log_webshell_url = "/root/webshll_url.txt"
 threads = 10
 url_queue = Queue.Queue()
 
@@ -22,7 +23,7 @@ def parse_raw_data(file):
         fd = open(file,"r")
         all_url_lines = fd.readlines()
     except Exception,e:
-        logging.getLogger().error("open file data_instance.txt error." + str(e))
+        logging.error("open file data_instance.txt error." + str(e))
     else:
         fd.close()
 
@@ -57,28 +58,66 @@ def parse_raw_data(file):
             #end if
         #end for
     except Exception,e:
-        logging.getLogger().error("parse_raw_data error %s,in line[%d]." % (str(e),num))
+        logging.error("parse_raw_data error %s,in line[%d]." % (str(e),num))
 
 #end def
 
+def checkWebShell(content):
+    try:
+        if content and len(content) < 5000 and content.find('form') > 0 and content.find('input') > 0:
+            form_content = ""
+            other_content = ""
+            if content.find('body') > 0:
+                match = re.findall(r"<(\s*)body(.*?)>(.*?)<(\s*)form(.+?)>(.+?)<(\s*)/(\s*)form(\s*)>(.*?)<(\s*)/(\s*)body(\s*)>",content,re.I|re.DOTALL)
+                if len(match) == 1:
+                    form_content = match[0][5]
+                    other_content = match[0][2] + match[0][9]
+            else:
+                match = re.findall(r"(\s*)(.*?)(\s*)<(\s*)form(.+?)>(.+?)<(\s*)/(\s*)form(\s*)>(\s*)(.*?)(\s*)",content,re.I|re.DOTALL)
+                if len(match) == 1:
+                    form_content = match[0][5]
+                    other_content = match[0][1] + match[0][10]
+
+            match = re.findall(r"<(\s*)input(.+?)type(\s*)=(\s*)(\"|')?(text|password)(\5)?(.+?)>",form_content,re.I|re.DOTALL)
+
+            if match and len(other_content) < 50:
+                return True
+
+            match = re.findall(r"<(\s*)input(.+?)type(\s*)=(\s*)(\"|')?(text|password)(\5)?(.+?)>",content,re.I|re.DOTALL)
+            if match:
+                if content.find('window.onerror=killErrors;function yesok(){if (confirm') > 0 and content.find('top.hideform.FName.value += "||||"+DName;}else if(FAction==') > 0:
+                    return True
+        #end if (content <5000)
+        else:
+            if re.search(r"[^0-9.](10|172|192)\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])[^0-9.]",content,re.DOTALL) and re.search(r"<(\s*)input(.*?)type(\s*)=(\s*)(\"|')?(file|text)(\5)?(.+?)>",content) and re.search(r"[rwx-]{9}",content,re.I):
+                return True
+
+        return False
+    except Exception,e:
+        logging.error("File:WehShellCheckScript.py, checkWebShell function :" + str(e))
+        return False
+        #end try
+#end def
 
 def my_http_request():
     while not url_queue.empty():
         url_dic = url_queue.get()
         url = "http://" + url_dic['host'] + url_dic['url']
         # print url
+        response = ''
         if url_dic['method'] == "GET":
             if url_dic['cookie'].strip(' '):
                 headers = {'Host':'','Cookie':'','User-Agent':'','Referer':''}
                 headers['Host']       = url_dic['host']
                 headers['User-Agent'] = url_dic['useragent']
                 headers['Cookie']     = url_dic['cookie']
-                headers['Referer']    = url_dic['referrer']
+                # headers['Referer']    = url_dic['referrer']
                 # print headers
                 response = requests.get(url,headers=headers)
             else:
                 response = requests.get(url)
-            # print response.text
+            print response.text
+
         elif url_dic['method'] == "POST":
             payload = ''
             if url_dic['content'].strip(' '):
@@ -86,6 +125,10 @@ def my_http_request():
                 # print payload
             response = requests.post(url,data=payload)
             # print response.text
+
+        if(response and response.status_code == requests.codes.ok):
+            if checkWebShell(response.text) == True:
+                os.system("echo %s >> log_webshell_url" % url)
     #end while
     print "[*] this thread is end."
 
@@ -108,5 +151,5 @@ if __name__ == "__main__":
             t.join()
         #end for
     except Exception,e:
-        logging.getLogger().error("start thread error," + str(e))
+        logging.error("start thread error," + str(e))
 #end if
