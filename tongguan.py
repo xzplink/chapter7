@@ -10,7 +10,7 @@ import Queue
 from threading import Thread
 import requests
 
-raw_url_file_name = "c:\data_instance.txt"
+raw_url_file_name = "/root/data_instance.txt"
 log_webshell_url = "/root/webshll_url.txt"
 threads = 10
 url_queue = Queue.Queue()

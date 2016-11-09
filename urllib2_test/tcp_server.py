@@ -22,7 +22,7 @@ def handle_client(client_socket):
 
     # 返回一个数据包
     client_socket.send("ACK!")
-    client_socket.close()
+    #client_socket.close()
 
 while True:
     client,addr = server.accept()
