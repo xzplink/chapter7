@@ -45,7 +45,7 @@ if [ $FAILURE -ne 0 ]; then
     /bin/rm $SQL_FILE
     exit 1
 fi
-echo "Well done, update eth2 ip to mysql successfull."
+echo "Well done, update eth2 ip to mysql successful."
 /bin/rm $SQL_FILE
 
 exit 0
