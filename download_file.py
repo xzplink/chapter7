@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#-*-encoding:UTF8-*-
+# -*-encoding:UTF8-*-
 # Create by zhaozhang@yxlink.com
 # On 2016/11/28
 
