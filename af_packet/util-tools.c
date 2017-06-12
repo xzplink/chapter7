@@ -57,6 +57,37 @@ int daemon_init(void)
     return(0);
 }
 
+uint16_t CpuGetNumProcessorsOnline()
+{
+    long nprocs = -1;
+    nprocs = sysconf(_SC_NPROCESSORS_ONLN);
+    if (nprocs < 1) {
+        printf("Couldn't retrieve the number of cpus "
+                               "online (%s)", strerror(errno));
+        return 0;
+    }
+
+    return nprocs;
+}
+
+static int SetCPUAffinity(pid_t tid, uint16_t cpuid)
+{
+    cpu_set_t cs;
+    int cpu = (int)cpuid;
+
+    CPU_ZERO(&cs);
+    CPU_SET(cpu, &cs);
+
+    int r = sched_setaffinity(tid, sizeof(cpu_set_t), cs);
+
+    if (r != 0) {
+        printf("Warning: sched_setaffinity failed (%" PRId32 "): %s\n", r,
+                strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
 int thread_set_cpu(pthread_t pid, int cpu_index, int cpu_num)
 {
     cpu_set_t   mask;
