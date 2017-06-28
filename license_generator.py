@@ -3,9 +3,10 @@
 # Create by zhaozhang@yxlink.com
 # On 2017/06/07
 
-import rsa
+# import rsa
 import sys
-import json
+import os
+import datetime
 import string
 import random
 import logging
@@ -16,90 +17,110 @@ import logging
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)s %(filename)s[line:%(lineno)d] %(message)s')
 
-public_key_str = """-----BEGIN RSA PUBLIC KEY-----
-MIGJAoGBAJ6m+aWR00650XWRNzAcy2ywCS5UAyPC4RVhlAP0BOtjegv5rHFgs/Wg
-C+lHUCwQ6/vnS9uebcnlSCjldMQRqGLoCyHdvuN0USWBRsJkCsYXWNEuoiwZ3RUQ
-EJuhGBjhy7bAN80SqTIUoPgMSfHCe1ymi3ppuskAOTfOR3KjhvlFAgMBAAE=
------END RSA PUBLIC KEY-----"""
-
-private_key_str = """-----BEGIN RSA PRIVATE KEY-----
-MIICYQIBAAKBgQCepvmlkdNOudF1kTcwHMtssAkuVAMjwuEVYZQD9ATrY3oL+axx
-YLP1oAvpR1AsEOv750vbnm3J5Ugo5XTEEahi6Ash3b7jdFElgUbCZArGF1jRLqIs
-Gd0VEBCboRgY4cu2wDfNEqkyFKD4DEnxwntcpot6abrJADk3zkdyo4b5RQIDAQAB
-AoGAHQciEEgxKGtZRrCOL3BlS/qdg2t9s5JZiobzBRIlwEfQMda51XjDFIL3CvSw
-V4+1Db8RIxrGrbUU0d7Bsj2r9l31jCcZvf3ohqRklcWZ/OF7ndL1pHq1yOR3jqVY
-JcVie7OZmAt6dqT7FqzbapdxoU5tMmILI9hQBhwhC+puXPUCRQCrD6APLQvgioTK
-kkh3iaMBgH/sU2aRk50q7kQhS8XIs1G3tJihBxveXKkflllW/Nxr6EDKBDgmvzEr
-SVeNOZGdXZ13lwI9AO1uAp+QopQ6nmsYCApCihnVCJ8hcvERokm9Wgcadfr/fW9d
-HwDdCB/YKDwNHTObExhyERBeo1TMo0RRgwJEP5PxI3LUpUIWlMvFz1gCk75UzVs6
-FgVNNvWTsORewHeVebfPupnPy9eYrDrPPbuBmUGbQvpKfGw3NCVwOvcYnep7akUC
-PQCSb1sm1qmvCkhSfMvYqBlMvVtH6fVeQSX6nNI9t1A0sgbG/IP2oFw2Z7bI8r2j
-6mzoktF7ayMJVf0MUckCRQCJPNzi+INd9rXghnDIpx49gMML719k8fkLlpwOD2Se
-8PKB5W18W0u8ECrHS906JZFESKLqVYWqmM2jgBVTOp7XzdjWfA==
+private_key = """-----BEGIN RSA PRIVATE KEY-----
+MIIEqgIBAAKCAQEAnNH3JgYKV8yiRDalgPZojEXM1h9Ou9gIaQDk0b91NeieTu8K
+r5UR2z09GOUrldOEpA1cdd1TZempESKcHqLYSfdLUJVVj2agOcdzBIk0beyB2S9S
+JTWeEa0AKQ/N5zrTirmESBnV4h5kmERz0Q4aYhCEvUM/tpRrbfLDYSg/tVpWPIF8
+vjmkSqrNRzoXzIRMA8excms06G7yX7lIWOy4+37/uFeyeeJxp7pWiHv5eGRWoG0f
+rRn6wkAQtCEPG+TBypoxBDBFHuP/TgNjVmu3FmMaC09EWO6jeIJntfhQtqOCsaAm
+Xb2wlApSTClhGKhdI5IZS+EmbyBkmICPTzp0hwIDAQABAoIBAGeLt/4SVPf+NVKH
+JqbNjOC6IfNsPqeHkJ4MqgnYukL7MrR53/tpmZ3ChLoQb8QBIv7Tl653kl6jdy/K
+Q31zFw9XyxINWK5UHA2qpUZkdgry9BX8yeepzJJtQcLbHaDFVfKuZirZbEFewhtM
+b5ClGESSFaOGaOZcf1dPpKRRM73dE7MVug7PU4/j/nAY+GRdrPl5epcBukNtQaRQ
+oK7c/ZQgDRUMXRp99GkU2Fbi4MuYxkrbo2uQKgtgMjxRW5vNcp0FmyiKdtO2UDAV
+v1EcUbCqMEhuEpjfCB2/uzXiQOR3tbtt/UjEbyvRal3HruN0Z+EFKVp9WasDyzqV
+9zB+JnkCgYkAqPEpBvnI6QYPpYLSzIWNgSf07kuJaOWarkv2w5mawmJi2EmvBXvi
+b8rDzku6SzfcOkdzZKNp0nmOoU4zWBfHfq1V0EolYZ7wdNbbHPO87xSe8DfQbYsR
+9OA6jkOBhgDUkneMi0ApmDwcpHtdIOhi7Qntwuy8xvmI0tWAZ/zJr1OALJRPSjsn
+0wJ5AO2hsIhTeG0CO72Mqnl+nvMoQdhjRm17KudkzfeVD876pJh2d0t0zgMMjXJW
+DGwvupywWELwNGIR2fJ/DDUTYzTyloqLKSBtBLaUGqHiLDtp1oyram/kHFXvApvs
+OdLcRCMQnI7aAVxRYy6tg+PdS1Yuij2nkzzj/QKBiQCYlU8/zKQnymChVPn83HaE
+e0kdXD3b7tv4pgVWfkonXGL4A/y+kDhgTZrxnLXCL86JGHVhJLJz9XPbvlxjKP72
+K6mAuSbv93QnotI9YOp4aIBwZ4ipF1z9dPON/+xg0ikrrCvUrPukUk5wRDdFfH20
+py4FynlpoIByI4CY6thhsKHoIX9HhQwfAnkAqFgPk8RuX+thHxtz+bY2LNSsMPvD
+fPPwpRTIxUiYdm0iBdCHGrGY8JgH7KQBEPOPJEnZfTJmKcOzvxM6Nq+RbIUfGO8V
+J5+T4zRw2ZY896o3EFivgqz7VfWIx6VGIZdhveWaw6i1pg0SUpMiCF9Ra7B0xtDc
+ghqRAoGIFVA3mBdxBwyixZd2CsEVhV7228jWJFtjmKN1LZ0EIW7bhWzvm+KUn1Pe
+B9iub3EGgN0PZDwvjrPBAgNtadh4IHdQBnut0xr7KvT2xq+cfuqRvJO2bWK48+Zn
+147NMRMDpRZjLw/WovnyIwkUoSzoQlHq9z9p5S8E4ZC/pwnZcx+AkXZg6iwBZA==
 -----END RSA PRIVATE KEY-----"""
 
-n=24625762657381141107391324296405776455871493080169289352871061194703831990558940603860568035064346462503773208074622392521378141587419770580777682193039448118520007206712288501389159549751661455425547103638215421575277064597083636896488951924661389291435841129055261450437407323316389362866209404724449679830565018861561567847070203602770001230431948952518314307113269292224867396135186763033871990312980368872077752917729644891556065348020379930830055642272557579818964365882147113643668880872274396803803559263709930177895758475604313325202146777967056551432199187168178015562902377679105727797512766125901244241869
-d=1690003319624195958350385000733729756775494623148872798726445376107125724842280237519842904367161031740455024083552517133820068540313121510445527209326236635584706376931235485389452125963349315568419899269289293637519014237054759394857084936006173774902459685327321864245704424149163975882975155226187723125605425991844840054298343382746368003059036594961263030255636255108236005503285064013238614286231601684052880698424252633961257570232301470378816050766687000834551394143440515101115039116074834793601335269657114509198898425006226212425769161758502160872942379528364231474622506400702556835798438570560584763873
-e=17
-p=167551891611585131795348220561903349482214995415826520821102562207453771788966095174465148052395555658664564159294745394481093521737508835217138461473810849552451430130804735779497942776017832910979033795849328777011033213747488883872341301749439958927779231448565330427167953332667726201902765913252750454841.
-q=146973945925170495498994662189592693518057859095512202567181298440260401298352592237929891232638617245785498581395789687925218660040763955807311869627021860963049763946923443533637510976308971186062211538571218552557919640337528203125740547736585105498688139734876740791235045364772173416832752470194258656309.
+public_key = """-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAnNH3JgYKV8yiRDalgPZojEXM1h9Ou9gIaQDk0b91NeieTu8Kr5UR
+2z09GOUrldOEpA1cdd1TZempESKcHqLYSfdLUJVVj2agOcdzBIk0beyB2S9SJTWe
+Ea0AKQ/N5zrTirmESBnV4h5kmERz0Q4aYhCEvUM/tpRrbfLDYSg/tVpWPIF8vjmk
+SqrNRzoXzIRMA8excms06G7yX7lIWOy4+37/uFeyeeJxp7pWiHv5eGRWoG0frRn6
+wkAQtCEPG+TBypoxBDBFHuP/TgNjVmu3FmMaC09EWO6jeIJntfhQtqOCsaAmXb2w
+lApSTClhGKhdI5IZS+EmbyBkmICPTzp0hwIDAQAB
+-----END RSA PUBLIC KEY-----"""
 
-
-HDMODE = [[1210, 1220, 2820], [5830, 6830, 5930, 6930], [8900, 8930]]
+HDMODE = [[1210, 1220, 2820], [2810, 5830, 6830, 5930, 6930], [8900, 8930]]
 HDWARE_CONF = {}
+VERIFY_STR = ""
+PLAIN_CODE = ""
 
-class PycryptoRSA(object):
-    (_crt, _key) = rsa.newkeys(1024)
-
-    # _key = rsa.PrivateKey.load_pkcs1(private_key_str)
-    # _crt = rsa.PublicKey.load_pkcs1(public_key_str)
-    print _crt
-    print _key
-
-    def __init__(self, crt=_crt, key=_key):
-        self.pubkey = crt
-        self.privkey = key
-        self._replace()
-        print self.pubkey
-        print self.privkey
-
-    def _replace(self):
-        self.pubkey.n = self.privkey.n = n
-        self.pubkey.e = self.privkey.e = e
-        self.privkey.d = d
-        self.privkey.p = p
-        self.privkey.q = q
-
-    def encrypt(self, text):
-        try:
-            cipher_text = rsa.encrypt(text, self.pubkey)
-            logging.debug("cipher_text: %s" % cipher_text)
-            return cipher_text
-        except Exception,e:
-            logging.error( "fatal error encrypt():" + str(e))
-            return ""
-
-    def decrypt(self, text):
-        try:
-            plain_text = rsa.decrypt(text, self.privkey)
-            logging.debug("plain_text: %s" % plain_text)
-        except Exception,e:
-            logging.error("fatal error decrypt():" + str(e))
-            return ""
-
+# class PycryptoRSA(object):
+#     def __init__(self, crt=public_key, key=private_key):
+#         self.pubkey = rsa.PublicKey.load_pkcs1(crt)
+#         self.privkey = rsa.PrivateKey.load_pkcs1(key)
+#
+#     def generate_keypair(self):
+#         (crt, key) = rsa.newkeys(2048)
+#         try:
+#             fd =  open('public.pem','w+')
+#             fd.write(crt.save_pkcs1())
+#             fd.close()
+#
+#             fd = open('private.pem','w+')
+#             fd.write(key.save_pkcs1())
+#             fd.close()
+#         except Exception,e:
+#             logging.error("generate keypair faild:" + str(e))
+#
+#     def encrypt(self, text):
+#         try:
+#             cipher_text = rsa.encrypt(text, self.pubkey)
+#             return cipher_text
+#         except Exception,e:
+#             logging.error( "fatal error encrypt():" + str(e))
+#             return ""
+#
+#     def decrypt(self, text):
+#         try:
+#             plain_text = rsa.decrypt(text, self.privkey)
+#             return plain_text
+#         except Exception,e:
+#             logging.error("fatal error decrypt():" + str(e))
+#             return ""
+#
+#     def sign(self, text):
+#         try:
+#             signature = rsa.sign(text, self.privkey, 'SHA-256')
+#             return signature
+#         except Exception,e:
+#             logging.error("fatal error sign():" + str(e))
+#             return ""
+#
+#     def verify(self, text, signature):
+#         try:
+#            ret = rsa.verify(text, signature, self.pubkey)
+#            print ret
+#         except Exception,e:
+#             logging.error("fatal error verify():" + str(e))
+#             return ""
 
 class LicenseManager(object):
     _random_len = 16
-    _lic_name = "/yxlink.lic"
+    _lic_name = "/waf.lic"
 
-    def __init__(self,begin,end,serno,feature,code,type=2):
-        self.lic_rsa = PycryptoRSA()
+    def __init__(self,begin,end,serno,feature,code,type=0):
+        # self.lic_rsa = PycryptoRSA()
         self.company = ""#"测试专用[2017-06-07]"
-        self.license_type = type
-        self.license_begin = begin#"2017-06-07"
-        self.license_end = end#"2017-06-07"
         self.model = ""#"Yxlink WAF-2810"
         self.serial_num = serno#"WAF0HW0B1A01"
+        self.license_type = str(type)
+        self.license_begin = begin#"2017-06-07"
+        self.license_end = end#"2017-06-07"
         self.random = self.random_generator()
         self.feature_set = feature#"11111000,10110000,11001000,00000000"
         self.hdmd5 = ""#"cc2c80528f80492b577507c33e77994c"
@@ -110,37 +131,20 @@ class LicenseManager(object):
         field = string.letters + string.digits
         return "".join(random.sample(field, self._random_len))
 
-    def _verify_lic(self, file_name=None):
-        try:
-            plain_lic = ""
-            if file_name:
-                file_path = file_name
-            else:
-                file_path = self.lic_file
-
-            with open(file_path,"r") as lic:
-                lic_content = lic.read()
-                if lic_content:
-                    plain_lic = self.lic_rsa.decrypt(lic_content)
-                logging.debug("plain_lic: %s" % plain_lic)
-            return plain_lic
-
-        except Exception,e:
-            logging.error("fatal error verify():" + str(e))
-
     def _verify_challenge_code(self):
-        global HDWARE_CONF
+        global HDWARE_CONF,PLAIN_CODE,VERIFY_STR
         from hardware_info import PycryptoAES
         lic_aes = PycryptoAES()
 
         try:
-            plain_text = lic_aes.decrypt(self.code)
-            HDWARE_CONF = json.loads(plain_text)
+            PLAIN_CODE = lic_aes.decrypt(self.code)
+            HDWARE_CONF = eval(PLAIN_CODE)
             logging.debug("HDWARE_CONF: %s" % HDWARE_CONF)
 
-            if HDWARE_CONF and len(HDWARE_CONF) != 10:
+            if HDWARE_CONF and len(HDWARE_CONF) != 9:
                 return 1
 
+            # 1、verify hardware configure info
             target = int(HDWARE_CONF["modelno"].split('-')[1])
 
             if target in HDMODE[0]:
@@ -158,6 +162,20 @@ class LicenseManager(object):
                     return 6
             else:
                 return 7
+            # 2、verify time, if abs(given_time - time_now) >= 2, return failed
+            time_now = datetime.datetime.now().strftime("%Y/%m/%d")
+            # print "time_now is: %s" % time_now
+
+            # 3、generater verify code
+            verify_dic = {}
+            verify_dic["core_num"] = HDWARE_CONF["core_num"]
+            verify_dic["mem_total"] = HDWARE_CONF["mem_total"]
+            # verify_dic["hdisk_sernum"] = HDWARE_CONF["hdisk_sernum"]
+            verify_dic["cpu_type"] = HDWARE_CONF["cpu_type"]
+            verify_dic["cpu_id"] = HDWARE_CONF["cpu_id"]
+            verify_dic["mb_uuid"] = HDWARE_CONF["mb_uuid"]
+            verify_dic["mac_list"] = HDWARE_CONF["mac_list"]
+            VERIFY_STR = str(verify_dic)
 
             return 0
         except Exception,e:
@@ -171,8 +189,8 @@ class LicenseManager(object):
             sys.exit(0)
 
         from hardware_info import get_text_md5
-        if HDWARE_CONF:
-            self.hdmd5 = get_text_md5(HDWARE_CONF)
+        if VERIFY_STR:
+            self.hdmd5 = get_text_md5(VERIFY_STR)
 
         if HDWARE_CONF["user"]:
             self.company = HDWARE_CONF["user"]
@@ -183,51 +201,47 @@ class LicenseManager(object):
         if HDWARE_CONF["modelno"] and self.serial_num:
             model = str(HDWARE_CONF["modelno"]).split(' ')[1]
             file_name = "%s[%s][%s][%s].lic" % (HDWARE_CONF["user"], model, self.serial_num, self.license_end)
-            print file_name
+            # print file_name
             # file_name = file_name.decode()
             self.lic_file = sys.path[0] + "/" + file_name
             # self.lic_file = self.lic_file.decode('utf8')
             logging.debug("lic_file is: %s" % self.lic_file)
 
+    def encode_file(self):
+        os.system("./wafrsa -e -i %s -o %s -p %s" % (self.lic_file, self.lic_file, "yxserver"))
+
     def run(self):
         self._prepare()
         try:
-            lic_str = self.company + "\n"
-            lic_str += self.license_type + "\n"
-            lic_str += self.license_begin + "\n"
-            lic_str += self.license_end + "\n"
-            lic_str += self.model + "\n"
-            lic_str += self.serial_num + "\n"
-            lic_str += self.random + "\n"
-            # lic_str += self.feature_set + "\n"
-            # lic_str += self.hdmd5 + "\n"
+            lic_str = self.company
+            lic_str += "\n" + self.model
+            lic_str += "\n" + self.serial_num
+            lic_str += "\n" + self.license_type
+            lic_str += "\n" + self.license_begin
+            lic_str += "\n" + self.license_end
+            lic_str += "\n" + self.random
+            lic_str += "\n" + self.feature_set
+            lic_str += "\n" + self.hdmd5
             logging.debug("lic_str:%s \nlic_str len:%d" %(lic_str, len(lic_str)))
-            lic_str = lic_str.encode('utf8')
-            cryptor_text = self.lic_rsa.encrypt(lic_str)
+            # lic_str = lic_str.encode('utf8')
+            # cryptor_text = self.lic_rsa.encrypt(lic_str)
 
-            with open(self.lic_file,"w+") as lic:
-                lic.write(cryptor_text)
+            lic = open(self.lic_file,"w+")
+            lic.write(lic_str)
+            lic.close()
+            self.encode_file()
 
         except Exception,e:
             logging.error("fatal error run():" + str(e))
 
+
 if __name__ == "__main__":
-    test_str = """
-测试专用[2017-06-07]
-Yxlink WAF-2810
-WAF0HW0B1A01
-58ec519a5561a4a8"""
 
-    myrsa = PycryptoRSA()
-    cipher_text = myrsa.encrypt(test_str)
-    plain_text = myrsa.decrypt(cipher_text)
+    chanllage_code = "xcdSq2+UbuIvtXuHQlhx0vnhGka+mRdfghTG1ktAq9RRQYD6cKU6GTEXNHiGEQ4hetG+PfuvyONtvsLrD0MpC4px7OeYQ8FD1VPNnAyCS0O1GvFBPRFz7h2w33xuBsEmIjnKv2Ta398d3cFFnodVkXzsAi1E8Xr2jvHgbMZQ+XPDcydW+GlSeZ73yzl9FSlgD8t7NwFESI0YluPxTbGH6CH2p0LYEIbkHKCJzHey1fk7qB0hfJnljYtVO0BEzaa8ThEH8XwyIpYLgYvtZBb/84/jpcHsloRzedlZ4PCRlvnihYZkP67QdqzTnBaGU+X99DWwT5iYNAiHcEQdg+RUlwA8FG0QRQ8/llFyoI4zZZXUQr4ilYO0onW1qfdcb6uPLTUfzr2NUyTcrAH4AEFGpwLsfAd7PEJWPTNAbU6gYNWK+yAI1F5VCCgnn/wJTazIHrk2M1n+gKRsChjB1NVoQ3KJaUwTRu4l3ACg1MfQVO+EQYfcw3hVgsFogYGK9Njn"
 
-    # chanllage_code = "nxR75C2G1A7nDn8BgKHHwYSrx3WuFNDpRSK6vvjFWvFmOOrQKHDBvLlPjKvAbelXjHuRiEsBYfvk3zjEXqdLp9RXcQ3Navtz82s5uRrJXYwHzsEWRLYi+XNduHRGYfea9azPJB2928ioGT5cPGEJNNlHtJHqARZJCY1hKVTzbHHobP9TmMJ+G1ea5jkPJTrpYDJVAkaw7WEPSsn+6oUasO4QTVql5gEVDQ8mVPij47jJOdIA+baxSAvcIpIUzQYQG9/LdGAZf86vP73vxjoUCAsRs4Yp2HFRIVS65U2Jv9KkGitDxJ3YAdEDV3l+GZBskCQNgOi+dZz8hP9J39oOKBfI/EjMg66aCZn6pxcCTCWCmCnEZwLN+3PxIpPxW2NHmNejGfeV7QkR+x1VXyybap2cnuh4JuUUBxpdrogCkjxEscD27KL5yBJcbe5N6Q8d++P8xOyYamPv8agpvnkdait65a7IufvqhM+MLfzXD8bM55osTic6RZ2jZ9oQTl2mHIuNfp6JczujfYenLZp4xgNSyy8Xn15NEaNbrJwZgv74DZpmX3yQeCUg+KdNSSXA"
-    # from hardware_info import get_text_md5
-    # get_text_md5(chanllage_code)
-    # print sys.getdefaultencoding()
-    # lic = LicenseManager("1","2017-06-09","2018-06-07","WAF0HW0B1A01","11111000,10110000,11001000,00000000",chanllage_code)
-    # lic.run()
-    # lic._verify_lic()
+    print sys.getdefaultencoding()
+    lic = LicenseManager("2017-06-19","2019-06-07","WAF0HW0B1A01","11111000,10110000,11001000,00000000",chanllage_code)
+    lic.run()
+    # verify_lic("/root/test_lic[WAF-2810][WAF0HW0B1A01][2018-06-07].lic")
     # ret = lic._verify_challenge_code(chanllage_code)
     # print ret
