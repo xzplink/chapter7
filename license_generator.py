@@ -115,15 +115,7 @@ class LicenseManager(object):
 
     def __init__(self,begin,end,serno,feature,code,type=0):
         # self.lic_rsa = PycryptoRSA()
-        self.company = ""#"测试专用[2017-06-07]"
-        self.model = ""#"Yxlink WAF-2810"
-        self.serial_num = serno#"WAF0HW0B1A01"
-        self.license_type = str(type)
-        self.license_begin = begin#"2017-06-07"
-        self.license_end = end#"2017-06-07"
-        self.random = self.random_generator()
-        self.feature_set = feature#"11111000,10110000,11001000,00000000"
-        self.hdmd5 = ""#"cc2c80528f80492b577507c33e77994c"
+        self.company = ""#"
         self.code = code
         self.lic_file = sys.path[0] + self._lic_name
 
@@ -208,20 +200,12 @@ class LicenseManager(object):
             logging.debug("lic_file is: %s" % self.lic_file)
 
     def encode_file(self):
-        os.system("./wafrsa -e -i %s -o %s -p %s" % (self.lic_file, self.lic_file, "yxserver"))
+        os.system("./wafrsa -e -i %s -o %s -p %s" % (self.lic_file, self.lic_file, "yourpassword"))
 
     def run(self):
         self._prepare()
         try:
             lic_str = self.company
-            lic_str += "\n" + self.model
-            lic_str += "\n" + self.serial_num
-            lic_str += "\n" + self.license_type
-            lic_str += "\n" + self.license_begin
-            lic_str += "\n" + self.license_end
-            lic_str += "\n" + self.random
-            lic_str += "\n" + self.feature_set
-            lic_str += "\n" + self.hdmd5
             logging.debug("lic_str:%s \nlic_str len:%d" %(lic_str, len(lic_str)))
             # lic_str = lic_str.encode('utf8')
             # cryptor_text = self.lic_rsa.encrypt(lic_str)
