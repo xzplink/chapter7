@@ -1,6 +1,5 @@
 #!/usr/bin/evn python
 # -*-encoding:UTF8-*-
-# Create by zhaozhang@yxlink.com
 # On 2017/06/26
 
 from M2Crypto import RSA
