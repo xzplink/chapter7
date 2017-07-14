@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*-coding:UTF-8-*-
-# Create by zhaozhang@yxlink.com
 # On 2016/12/8
 
 import sys
