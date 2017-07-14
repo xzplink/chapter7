@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*-coding:UTF-8-*-
-# Create by zhaozhang@yxlink.com
 # On 2016/11/30
 
 import smtplib
@@ -13,11 +12,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 # from email.mime.application import MIMEApplication
 
-sender = 'zhaozhang@yxlink.com'#发件人地址
-receiver = 'zhaozhang@yxlink.com'#收件人地址
-smtpserver = 'smtp.yxlink.com'#邮件服务器
+sender = 'zhaozhang@163.com'#发件人地址
+receiver = 'zhaozhang@163.com'#收件人地址
+smtpserver = 'smtp.163.com'#邮件服务器
 username = 'zhaozhang'#用户名
-password = 'r&b4537063'#密码
+password = 'yourpasswd'#密码
 smtp = smtplib.SMTP()
 
 def send_email(msg,file_name):
