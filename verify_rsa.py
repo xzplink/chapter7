@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*-encoding:UTF8-*-
-# Create by zhaozhang@yxlink.com
 # On 2017/06/07
 
 import base64
@@ -70,14 +69,7 @@ class PycryptoRSA(object):
         return plain_text
 
 if __name__ == "__main__":
-    test_str = """wo shi yi zhi xiao hua mao.
-测试专用[2017-06-07]
-1
-2017-06-07
-2017-06-07
-Yxlink WAF-2810
-WAF0HW0B1A01
-58ec519a5561a4a8"""
+    test_str = """wo shi yi zhi xiao hua mao."""
     rsa = PycryptoRSA()
     cipher_text = rsa.encrypt(test_str)
     plain_text = rsa.decrypt(cipher_text)
