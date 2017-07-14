@@ -1,6 +1,5 @@
 /*
  * @file name: util-afpacket.h
- * Created by zhaozhang@yxlink.com
  * on 2016/10/10.
  */
 
