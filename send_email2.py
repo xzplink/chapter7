@@ -12,10 +12,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 # from email.mime.application import MIMEApplication
 
-sender = 'zhaozhang@163.com'#发件人地址
-receiver = 'zhaozhang@163.com'#收件人地址
+sender = 'zhaoz@163.com'#发件人地址
+receiver = 'zhaoz@163.com'#收件人地址
 smtpserver = 'smtp.163.com'#邮件服务器
-username = 'zhaozhang'#用户名
+username = 'zhaoz'#用户名
 password = 'yourpasswd'#密码
 smtp = smtplib.SMTP()
 
